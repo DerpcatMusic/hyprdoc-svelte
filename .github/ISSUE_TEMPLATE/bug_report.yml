@@ -1,0 +1,129 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping us improve HyprDoc! Please provide as much detail as possible.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Bug Summary
+      description: Brief description of the bug
+      placeholder: "The Export PDF button doesn't work - nothing happens when clicked"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this bug?
+      placeholder: |
+        1. Go to the editor
+        2. Create a document with some text
+        3. Click "Export PDF" button
+        4. Nothing happens
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen?
+      placeholder: "A PDF file should download"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happens?
+      placeholder: "Button appears to click but nothing happens. No download, no error message."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected Area
+      description: Which part of HyprDoc is affected?
+      options:
+        - Editor (Smart Blocks, formatting, properties)
+        - Dashboard (document list, navigation)
+        - Signing Flow
+        - PDF Export/Import
+        - Authentication
+        - API
+        - UI/UX
+        - Performance
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - Critical (app is broken/unusable)
+        - High (major feature broken)
+        - Medium (feature partially broken)
+        - Low (minor annoyance)
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, OS, and any relevant details
+      placeholder: |
+        - Browser: Chrome 120
+        - OS: Windows 11
+        - Screen size: 1920x1080
+    validations:
+      required: false
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Console Errors
+      description: Any errors in the browser console? (F12 -> Console tab)
+      render: shell
+      placeholder: "TypeError: Cannot read property 'export' of undefined..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain the problem
+    validations:
+      required: false
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: Have you found any workaround?
+      placeholder: "Refreshing the page sometimes fixes it..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have tried refreshing and clearing cache
+          required: false

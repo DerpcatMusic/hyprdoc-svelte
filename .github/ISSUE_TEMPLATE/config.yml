@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question / Discussion
+    url: https://github.com/YOUR_USERNAME/hyprdoc-svelte/discussions
+    about: Ask questions or start a discussion about HyprDoc
+  - name: Documentation
+    url: https://github.com/YOUR_USERNAME/hyprdoc-svelte/tree/main/docs
+    about: Check the documentation for answers

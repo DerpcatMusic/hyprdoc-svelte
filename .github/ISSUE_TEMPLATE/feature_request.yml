@@ -1,0 +1,131 @@
+name: Feature Request
+description: Propose a new feature for HyprDoc
+title: "[FEATURE] "
+labels: ["feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to propose a feature! Please fill out the details below.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences describing the feature
+      placeholder: "Add a payment tracking block that shows payment schedule and status"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem does this solve? Why do we need this?
+      placeholder: "Currently users have to track payments in spreadsheets separate from the contract..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How should this feature work? Be specific.
+      placeholder: |
+        1. Add a new "Payment Tracker" Smart Block
+        2. Block shows a table with due dates, amounts, and status
+        3. Users can mark payments as paid/pending
+        4. Integrates with Stripe for automatic detection
+    validations:
+      required: true
+
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User Story
+      description: Describe from the user's perspective
+      placeholder: "As a contract owner, I want to see payment status in my contract so that I don't have to check a separate spreadsheet"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature Area
+      description: Which part of HyprDoc does this affect?
+      options:
+        - Editor (Smart Blocks, formatting, properties)
+        - Living Contracts (post-signature features)
+        - Dashboard (document list, navigation)
+        - Signing Flow (signature, verification)
+        - Integrations (Stripe, HubSpot, etc.)
+        - Onboarding (user profiles, autofill)
+        - UI/UX (design, responsiveness)
+        - API (external integrations)
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Suggested Priority
+      description: How important is this feature?
+      options:
+        - Critical (blocking core functionality)
+        - High (significant user value)
+        - Medium (nice to have)
+        - Low (future consideration)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Estimated Size
+      description: How big is this feature?
+      options:
+        - Small (< 1 day)
+        - Medium (2-5 days)
+        - Large (1-2 weeks)
+        - Epic (multiple features, weeks of work)
+        - Not sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: design
+    attributes:
+      label: Design Notes
+      description: Any UI/UX considerations, mockups, or screenshots?
+      placeholder: "Include screenshots, Figma links, or ASCII diagrams"
+    validations:
+      required: false
+
+  - type: textarea
+    id: technical
+    attributes:
+      label: Technical Notes
+      description: Any implementation considerations?
+      placeholder: "This would require a new Convex table for payment records..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other solutions did you consider?
+      placeholder: "We could just link to a Google Sheet, but that defeats the purpose of Living Contracts..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: This feature aligns with the HyprDoc vision (see docs/VISION.md)
+          required: false
