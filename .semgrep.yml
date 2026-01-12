@@ -1,0 +1,99 @@
+rules:
+  # Next.js Security Rules
+  - id: nextjs-dangerous-set-inner-html
+    patterns:
+      - pattern: dangerouslySetInnerHTML
+    message: "Avoid using dangerouslySetInnerHTML as it can lead to XSS attacks"
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: nextjs-eval-usage
+    patterns:
+      - pattern: eval(...)
+    message: "Avoid using eval() as it can execute malicious code"
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: nextjs-process-env-exposure
+    patterns:
+      - pattern: process.env.$VAR
+      - pattern: process.env[...]
+    message: "Ensure environment variables are not exposed to client-side code"
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # Convex Security Rules
+  - id: convex-unsafe-query
+    patterns:
+      - pattern: ctx.db.query(...).filter(...)
+    message: "Use withIndex instead of filter for better performance and security"
+    severity: WARNING
+    languages: [typescript]
+
+  - id: convex-missing-validator
+    patterns:
+      - pattern: export const $FUNC = $TYPE({ args: {}, handler: ... })
+      - pattern-not: export const $FUNC = $TYPE({ args: $ARGS, returns: $RETURNS, handler: ... })
+    message: "Convex functions must have argument and return validators"
+    severity: ERROR
+    languages: [typescript]
+
+  - id: convex-public-sensitive-function
+    patterns:
+      - pattern: export const $FUNC = mutation({ args: { password: ... }, handler: ... })
+      - pattern: export const $FUNC = mutation({ args: { token: ... }, handler: ... })
+    message: "Sensitive operations should use internalMutation instead of public mutation"
+    severity: WARNING
+    languages: [typescript]
+
+  # General Security Rules
+  - id: hardcoded-secrets
+    patterns:
+      - pattern-regex: (password|secret|key|token)\s*[:=]\s*["'][^"']*["']
+      - pattern-not-regex: (password|secret|key|token)\s*[:=]\s*["']\$[^"']*["']
+    message: "Hardcoded secrets detected - use environment variables"
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: sql-injection-risk
+    patterns:
+      - pattern: $QUERY + $INPUT
+      - pattern: `$QUERY${$INPUT}`
+    message: "Potential SQL injection vulnerability - use parameterized queries"
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: xss-risk
+    patterns:
+      - pattern: innerHTML = $INPUT
+      - pattern: outerHTML = $INPUT
+      - pattern: document.write($INPUT)
+    message: "Potential XSS vulnerability - sanitize user input"
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # TypeScript Specific Rules
+  - id: typescript-any-usage
+    patterns:
+      - pattern: : any
+      - pattern: <any>
+    message: "Avoid using 'any' type - use specific types for better type safety"
+    severity: WARNING
+    languages: [typescript]
+
+  - id: typescript-unsafe-type-assertion
+    patterns:
+      - pattern: as any
+      - pattern: as unknown as
+    message: "Unsafe type assertion detected - ensure type safety"
+    severity: WARNING
+    languages: [typescript]
+
+# Include Semgrep's built-in rules
+extends:
+  - p/default
+  - p/security-audit
+  - p/owasp-top-ten
+  - p/nodejs
+  - p/javascript
+  - p/typescript
