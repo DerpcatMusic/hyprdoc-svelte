@@ -25,7 +25,8 @@ export const FontWeight = Extension.create({
         attributes: {
           fontWeight: {
             default: null,
-            parseHTML: (element) => element.style.fontWeight || element.style.fontVariationSettings,
+            parseHTML: (element) =>
+              element.style.fontWeight || element.style.fontVariationSettings,
             renderHTML: (attributes) => {
               if (!attributes.fontWeight) {
                 return {};
@@ -51,7 +52,10 @@ export const FontWeight = Extension.create({
       unsetFontWeight:
         () =>
         ({ chain }) => {
-          return chain().setMark("textStyle", { fontWeight: null }).removeEmptyTextStyle().run();
+          return chain()
+            .setMark("textStyle", { fontWeight: null })
+            .removeEmptyTextStyle()
+            .run();
         },
     };
   },

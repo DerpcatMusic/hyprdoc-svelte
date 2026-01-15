@@ -1,14 +1,12 @@
 <script lang="ts">
-	import { Toaster as Sonner } from "svelte-sonner";
+  import { Toaster as Sonner } from "svelte-sonner";
 
-	const {
-		...restProps
-	} = $props();
+  const { ...restProps } = $props();
 </script>
 
 <Sonner
-	class="toaster group"
-	toastOptions={{
+  class="toaster group"
+  toastOptions={{
 		classes: {
 			toast:
 				"group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
@@ -19,5 +17,5 @@
 				"group-[.toast]:bg-muted group-[.toast]:text-muted-foreground"
 		}
 	}}
-	{...restProps}
+  {...restProps}
 />

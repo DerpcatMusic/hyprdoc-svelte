@@ -61,7 +61,8 @@ export const AISelectionExtension = Extension.create({
                   class: "ai-selection-highlight",
                 });
                 return DecorationSet.create(tr.doc, [deco]);
-              } else if (meta.type === "unset") {
+              }
+              if (meta.type === "unset") {
                 return DecorationSet.empty;
               }
             }

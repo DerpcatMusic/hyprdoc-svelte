@@ -28,19 +28,42 @@ export interface NormalizedSlot {
  * Convert any slot-like or signer-like entity to a normalized format.
  * Handles: Convex slots, Convex signers, mapped slot objects from queries.
  */
+interface SlotLikeEntity {
+  name?: unknown;
+  legalName?: unknown;
+  role?: unknown;
+  color?: unknown;
+  sourceSlotId?: unknown;
+}
+
+function getStringProperty(obj: Record<string, unknown>, key: string): string | undefined {
+  const value = obj[key];
+  return typeof value === "string" ? value : undefined;
+}
+
 export const toNormalizedSlot = (entity: unknown): NormalizedSlot => {
   if (!entity || typeof entity !== "object") {
     return { id: "", name: "Unknown", color: "#6366f1" };
   }
 
-  const e = entity as Record<string, unknown>;
+  const e = entity as SlotLikeEntity & Record<string, unknown>;
+
+  const name = getStringProperty(e, "name") || 
+               getStringProperty(e, "legalName") || 
+               getStringProperty(e, "role") || 
+               "Signer";
+  
+  const color = getStringProperty(e, "color") || "#6366f1";
+  
+  const sourceSlotId = e.sourceSlotId !== undefined && e.sourceSlotId !== null
+    ? String(e.sourceSlotId)
+    : undefined;
 
   return {
     id: normalizeId(entity) || "",
-    name: (e.name as string) || (e.legalName as string) || (e.role as string) || "Signer",
-    color: (e.color as string) || "#6366f1",
-    // Support sourceSlotId from signers table
-    sourceSlotId: e.sourceSlotId ? String(e.sourceSlotId) : undefined,
+    name,
+    color,
+    sourceSlotId,
   };
 };
 
@@ -48,7 +71,9 @@ export const toNormalizedSlot = (entity: unknown): NormalizedSlot => {
  * Convert an array of slot-like entities to normalized format.
  */
 export const toNormalizedSlots = (entities: unknown[]): NormalizedSlot[] => {
-  if (!Array.isArray(entities)) { return []; }
+  if (!Array.isArray(entities)) {
+    return [];
+  }
   return entities.map(toNormalizedSlot);
 };
 
@@ -69,16 +94,22 @@ export const findSlotForBlock = (
 ): NormalizedSlot | null => {
   const slotIdNorm = normalizeId(blockSlotId);
 
-  if (!slotIdNorm) { return null; }
+  if (!slotIdNorm) {
+    return null;
+  }
 
   // 1. Direct slotId match (templates)
   const directMatch = slots.find((s) => s.id === slotIdNorm);
-  if (directMatch) { return directMatch; }
+  if (directMatch) {
+    return directMatch;
+  }
 
   // 2. Reverse lookup via sourceSlotId (envelopes)
   // Block keeps original slotId, signer has sourceSlotId pointing to it
   const sourceMatch = slots.find((s) => s.sourceSlotId === slotIdNorm);
-  if (sourceMatch) { return sourceMatch; }
+  if (sourceMatch) {
+    return sourceMatch;
+  }
 
   return null;
 };
@@ -98,10 +129,14 @@ export const isBlockAssignedToSlot = (
   const bid = normalizeId(blockSlotId);
   const tid = normalizeId(targetSlotId);
 
-  if (!(bid && tid)) { return false; }
+  if (!(bid && tid)) {
+    return false;
+  }
 
   // Direct match
-  if (bid === tid) { return true; }
+  if (bid === tid) {
+    return true;
+  }
 
   // Check via slot mapping if slots provided
   if (slots) {
@@ -128,13 +163,19 @@ export const isBlockOwnedBySigner = (
   const slotIdNorm = normalizeId(blockSlotId);
 
   // Unassigned blocks: treat as NOT owned (require assignment)
-  if (!slotIdNorm) { return false; }
+  if (!slotIdNorm) {
+    return false;
+  }
 
   // Direct match: block.slotId matches signer ID (shouldn't happen, but handle)
-  if (slotIdNorm === signerId) { return true; }
+  if (slotIdNorm === signerId) {
+    return true;
+  }
 
   // Standard case: block.slotId matches signer.sourceSlotId
-  if (signerSourceSlotId && slotIdNorm === signerSourceSlotId) { return true; }
+  if (signerSourceSlotId && slotIdNorm === signerSourceSlotId) {
+    return true;
+  }
 
   return false;
 };

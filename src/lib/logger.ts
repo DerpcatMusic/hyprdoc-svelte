@@ -27,8 +27,9 @@ const LOGS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_LOGS !== "false";
  * - Prod without logs: 4 (warn+ only)
  */
 const getMinLevel = (): number => {
-  if (!(LOGS_ENABLED || isDev)) { return 4; // warn, error, fatal only
-}
+  if (!(LOGS_ENABLED || isDev)) {
+    return 4; // warn, error, fatal only
+  }
   return isDev ? 2 : 3; // debug in dev, info in prod
 };
 
@@ -43,7 +44,9 @@ export const logger = new Logger<ILogObj>({
   // Pretty output in dev, JSON in production
   type: isDev ? "pretty" : "json",
   // Custom pretty template for dev
-  prettyLogTemplate: isDev ? "{{hh}}:{{MM}}:{{ss}} {{logLevelName}} [{{name}}] " : undefined,
+  prettyLogTemplate: isDev
+    ? "{{hh}}:{{MM}}:{{ss}} {{logLevelName}} [{{name}}] "
+    : undefined,
   prettyLogTimeZone: "local",
   // Hide sensitive position info in production
   hideLogPositionForProduction: true,

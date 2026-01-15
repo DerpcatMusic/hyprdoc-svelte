@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { Tabs as BitsTabs } from "bits-ui";
+  import { Tabs as BitsTabs } from "bits-ui";
 
-	let {
-		value = $bindable(""),
-		children,
-		ref = $bindable(null),
-		...restProps
-	} = $props();
+  let {
+    value = $bindable(""),
+    children,
+    ref = $bindable(null),
+    ...restProps
+  } = $props();
 </script>
 
 <BitsTabs.Root bind:value bind:ref {...restProps}>
-	{@render children?.()}
+  {@render children?.()}
 </BitsTabs.Root>

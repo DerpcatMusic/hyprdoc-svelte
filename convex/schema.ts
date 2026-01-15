@@ -1,13 +1,10 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
-import {
-	aiTemplateMetadataValidator,
-	auditMetadataValidator,
-	blocksArrayValidator,
-	documentSettingsValidator,
-	fieldValuesValidator
-} from './lib/schemas';
+// Domain imports (flat file structure)
+import { aiTemplateMetadataValidator, auditMetadataValidator } from './domains/audit';
+import { documentSettingsValidator } from './domains/settings';
+import { documentStatusValidator, documentKindValidator } from './domains/documents';
 
 export default defineSchema(
 	{
@@ -108,8 +105,17 @@ export default defineSchema(
 			hyprSignMonthResetDate: v.optional(v.string()), // ISO month "2026-01"
 
 			// Onboarding Flags
+			onboardingStep: v.optional(v.number()), // 1, 2, 3...
+			onboardingCompleted: v.optional(v.boolean()),
 			autoFillOnboardingCompleted: v.optional(v.boolean()),
 			hasCompletedPlanSelection: v.optional(v.boolean()), // True when user has chosen any plan (including free)
+
+			// Detailed Onboarding Info (Agree.com inspired)
+			currentERP: v.optional(v.string()), // e.g. "Microsoft Dynamics", "NetSuite"
+			employeeCount: v.optional(v.string()), // e.g. "Just me", "2-10", "11-50"
+			agentTone: v.optional(
+				v.union(v.literal('casual'), v.literal('professional'), v.literal('friendly'))
+			),
 
 			createdAt: v.number(),
 			lastSeenAt: v.number()
@@ -118,14 +124,116 @@ export default defineSchema(
 			.index('by_email', ['email']),
 
 		// ═══════════════════════════════════════════════════════════════
+		// SLOTS - Abstract placeholders for templates (Tenant, Landlord, etc.)
+		// ═══════════════════════════════════════════════════════════════
+		slots: defineTable({
+			documentId: v.id('documents'),
+			name: v.string(),
+			role: v.string(),
+			color: v.string(),
+			order: v.number(),
+			defaultFields: v.optional(
+				v.array(
+					v.object({
+						type: v.string(),
+						label: v.string(),
+						required: v.boolean()
+					})
+				)
+			),
+			createdAt: v.number()
+		})
+			.index('by_document', ['documentId'])
+			.index('by_document_order', ['documentId', 'order']),
+
+		// ═══════════════════════════════════════════════════════════════
+		// SIGNERS - Real people required to sign an Envelope
+		// ═══════════════════════════════════════════════════════════════
+		signers: defineTable({
+			documentId: v.id('documents'),
+			email: v.string(),
+			phone: v.string(),
+			phoneCountryCode: v.optional(v.string()),
+			legalName: v.string(),
+			role: v.string(),
+			order: v.number(),
+			color: v.optional(v.string()),
+			sourceSlotId: v.optional(v.string()),
+			fieldValues: v.optional(v.any()), // validator placeholder
+			fieldValuesUpdatedAt: v.optional(v.number()),
+			accessToken: v.string(),
+			tokenExpiresAt: v.number(),
+			verificationStatus: v.union(
+				v.literal('pending'),
+				v.literal('email_verified'),
+				v.literal('phone_verified'),
+				v.literal('fully_verified'),
+				v.literal('expired')
+			),
+			status: v.union(
+				v.literal('pending'),
+				v.literal('viewed'),
+				v.literal('signed'),
+				v.literal('declined')
+			),
+			invitedAt: v.number(),
+			viewedAt: v.optional(v.number()),
+			emailVerifiedAt: v.optional(v.number()),
+			phoneVerifiedAt: v.optional(v.number()),
+			consentGivenAt: v.optional(v.number()),
+			signedAt: v.optional(v.number()),
+			declinedAt: v.optional(v.number()),
+			consentText: v.optional(v.string()),
+			consentIpAddress: v.optional(v.string()),
+			consentUserAgent: v.optional(v.string()),
+			consentGeoLocation: v.optional(v.string()),
+			reminderCount: v.optional(v.number()),
+			lastReminderAt: v.optional(v.number())
+		})
+			.index('by_document', ['documentId'])
+			.index('by_email', ['email'])
+			.index('by_phone', ['phone'])
+			.index('by_access_token', ['accessToken'])
+			.index('by_status_and_invited', ['status', 'invitedAt'])
+			.index('by_document_and_status', ['documentId', 'status']),
+
+		// ═══════════════════════════════════════════════════════════════
+		// SIGNATURES - Individual signature records
+		// ═══════════════════════════════════════════════════════════════
+		signatures: defineTable({
+			documentId: v.id('documents'),
+			signerId: v.id('signers'),
+			blockId: v.string(),
+			signatureType: v.union(v.literal('draw'), v.literal('type'), v.literal('upload')),
+			signatureData: v.string(),
+			signatureHash: v.string(),
+			signedAsName: v.string(),
+			signedAt: v.number(),
+			ipAddress: v.string(),
+			userAgent: v.string(),
+			geoLocation: v.optional(v.string()),
+			emailVerificationHash: v.string(),
+			phoneVerificationHash: v.string(),
+			pdfX: v.optional(v.number()),
+			pdfY: v.optional(v.number()),
+			pdfPage: v.optional(v.number()),
+			pdfWidth: v.optional(v.number()),
+			pdfHeight: v.optional(v.number())
+		})
+			.index('by_document', ['documentId'])
+			.index('by_signer', ['signerId'])
+			.index('by_signature_hash', ['signatureHash']),
+
+
+		// ═══════════════════════════════════════════════════════════════
 		// DOCUMENTS - User's created documents
 		// ═══════════════════════════════════════════════════════════════
 		documents: defineTable({
 			ownerId: v.id('users'),
 			title: v.string(),
 			content: v.string(),
-			// 2025-12-21: Strict block validation enabled after prod cleanup
-			blocks: blocksArrayValidator,
+			// blocks: v.any() until smart blocks rebuilt
+			blocks: v.any(),
 
 			status: v.union(
 				v.literal('draft'),
@@ -234,165 +342,13 @@ export default defineSchema(
 			.index('by_document_and_user', ['documentId', 'workosId'])
 			.index('by_document_and_email', ['documentId', 'email']),
 
-		// ═══════════════════════════════════════════════════════════════
-		// SLOTS - Abstract placeholders for templates (Tenant, Landlord, etc.)
-		// Formerly called "Parties"
-		// - Slots: Template placeholders with role/color, infinitely reusable
-		// - Signers: Real people attached to an Envelope's Slots
-		// ═══════════════════════════════════════════════════════════════
-		slots: defineTable({
-			documentId: v.id('documents'), // Parent template
 
-			// Identity (placeholder info)
-			name: v.string(), // Display name: "Tenant", "Landlord", "Artist"
-			role: v.string(), // Role description (often same as name)
-			color: v.string(), // Hex color for UI distinction: "#6366f1"
-			order: v.number(), // Display/signing order
 
-			// Default fields to auto-spawn when slot is added (optional feature)
-			defaultFields: v.optional(
-				v.array(
-					v.object({
-						type: v.string(),
-						label: v.string(),
-						required: v.boolean()
-					})
-				)
-			),
 
-			createdAt: v.number()
-		})
-			.index('by_document', ['documentId'])
-			.index('by_document_order', ['documentId', 'order']),
 
-		// ═══════════════════════════════════════════════════════════════
-		// SIGNERS - Real people required to sign an Envelope
-		// Created from Slots when a template is instantiated
-		// ═══════════════════════════════════════════════════════════════
-		signers: defineTable({
-			documentId: v.id('documents'),
 
-			// Identity (entered by document owner)
-			email: v.string(),
-			phone: v.string(), // Full phone number
-			phoneCountryCode: v.optional(v.string()), // e.g., "+1", "+44", "+972"
-			legalName: v.string(),
-			role: v.string(),
-			order: v.number(),
-			color: v.optional(v.string()),
 
-			// Link back to template slot this signer was created from
-			// This enables traceability and slot-to-signer mapping
-			sourceSlotId: v.optional(v.string()),
 
-			// Signer's filled field values (blockId -> value)
-			fieldValues: v.optional(fieldValuesValidator),
-			fieldValuesUpdatedAt: v.optional(v.number()),
-
-			// Access
-			accessToken: v.string(),
-			tokenExpiresAt: v.number(),
-
-			// Verification Status
-			verificationStatus: v.union(
-				v.literal('pending'),
-				v.literal('email_verified'),
-				v.literal('phone_verified'),
-				v.literal('fully_verified'),
-				v.literal('expired')
-			),
-
-			// Signing Status
-			status: v.union(
-				v.literal('pending'),
-				v.literal('viewed'),
-				v.literal('signed'),
-				v.literal('declined')
-			),
-
-			// Timestamps
-			invitedAt: v.number(),
-			viewedAt: v.optional(v.number()), // When signer first viewed the document
-			emailVerifiedAt: v.optional(v.number()),
-			phoneVerifiedAt: v.optional(v.number()),
-			consentGivenAt: v.optional(v.number()),
-			signedAt: v.optional(v.number()),
-			declinedAt: v.optional(v.number()),
-
-			// Consent record
-			consentText: v.optional(v.string()),
-			consentIpAddress: v.optional(v.string()),
-			consentUserAgent: v.optional(v.string()),
-			consentGeoLocation: v.optional(v.string()),
-
-			// Reminder tracking (Phase 6)
-			reminderCount: v.optional(v.number()),
-			lastReminderAt: v.optional(v.number())
-		})
-			.index('by_document', ['documentId'])
-			.index('by_email', ['email'])
-			.index('by_phone', ['phone'])
-			.index('by_access_token', ['accessToken'])
-			.index('by_status_and_invited', ['status', 'invitedAt'])
-			.index('by_document_and_status', ['documentId', 'status']),
-
-		// ═══════════════════════════════════════════════════════════════
-		// OTP CODES - Temporary verification codes
-		// ═══════════════════════════════════════════════════════════════
-		otpCodes: defineTable({
-			signerId: v.optional(v.id('signers')),
-			memberId: v.optional(v.id('documentMembers')), // For guest collaborators
-			type: v.union(v.literal('email'), v.literal('phone')),
-			code: v.string(),
-			expiresAt: v.number(),
-			attempts: v.number(),
-			usedAt: v.optional(v.number()),
-
-			// For audit
-			sentAt: v.number(),
-			sentTo: v.string(),
-			ipAddress: v.optional(v.string())
-		})
-			.index('by_signer_and_type', ['signerId', 'type'])
-			.index('by_member_and_type', ['memberId', 'type'])
-			.index('by_expires', ['expiresAt']),
-
-		// ═══════════════════════════════════════════════════════════════
-		// SIGNATURES - Individual signature records
-		// ═══════════════════════════════════════════════════════════════
-		signatures: defineTable({
-			documentId: v.id('documents'),
-			signerId: v.id('signers'),
-			blockId: v.string(),
-
-			// Signature Data
-			signatureType: v.union(v.literal('draw'), v.literal('type'), v.literal('upload')),
-			signatureData: v.string(),
-			signatureHash: v.string(),
-
-			// The legal name used when signing
-			signedAsName: v.string(),
-
-			// Audit Data (eIDAS compliance)
-			signedAt: v.number(),
-			ipAddress: v.string(),
-			userAgent: v.string(),
-			geoLocation: v.optional(v.string()),
-
-			// Verification proof
-			emailVerificationHash: v.string(),
-			phoneVerificationHash: v.string(),
-
-			// PDF embedding coordinates (Phase 4: Signature Binding)
-			pdfX: v.optional(v.number()), // X position (0-1 normalized)
-			pdfY: v.optional(v.number()), // Y position (0-1 normalized)
-			pdfPage: v.optional(v.number()), // Page number (0-indexed)
-			pdfWidth: v.optional(v.number()), // Signature width in px
-			pdfHeight: v.optional(v.number()) // Signature height in px
-		})
-			.index('by_document', ['documentId'])
-			.index('by_signer', ['signerId'])
-			.index('by_signature_hash', ['signatureHash']),
 
 		// ═══════════════════════════════════════════════════════════════
 		// AUDIT LOGS - Immutable compliance trail
@@ -400,11 +356,11 @@ export default defineSchema(
 		auditLogs: defineTable({
 			// Actor
 			workosId: v.optional(v.id('users')),
-			signerId: v.optional(v.id('signers')),
+
 			memberId: v.optional(v.id('documentMembers')),
 			actorType: v.union(
 				v.literal('user'),
-				v.literal('signer'),
+
 				v.literal('system'),
 				v.literal('member')
 			),
@@ -416,10 +372,7 @@ export default defineSchema(
 			resourceType: v.union(
 				v.literal('document'),
 				v.literal('template'),
-				v.literal('signature'),
-				v.literal('user'),
-				v.literal('signer'),
-				v.literal('otp')
+				v.literal('user')
 			),
 			resourceId: v.string(),
 
@@ -445,7 +398,7 @@ export default defineSchema(
 			entryHash: v.string()
 		})
 			.index('by_user', ['workosId'])
-			.index('by_signer', ['signerId'])
+
 			.index('by_member', ['memberId'])
 			.index('by_document', ['documentId'])
 			.index('by_resource', ['resourceType', 'resourceId'])
@@ -461,7 +414,8 @@ export default defineSchema(
 			documentId: v.id('documents'),
 			version: v.number(),
 			content: v.string(),
-			blocks: blocksArrayValidator,
+			// blocks: v.any() until smart blocks rebuilt
+			blocks: v.any(),
 			contentHash: v.string(),
 			createdAt: v.number(),
 			createdBy: v.optional(v.id('users')),
@@ -708,15 +662,71 @@ export default defineSchema(
 		}).index('by_fingerprint', ['fingerprint']),
 
 		// ═══════════════════════════════════════════════════════════════
-		// COUNTERS - Sequential ID generators (certificates, invoices, etc.)
+		// OTP CODES - Temporary verification codes
+		// ═══════════════════════════════════════════════════════════════
+		otpCodes: defineTable({
+			signerId: v.optional(v.id('signers')),
+			memberId: v.optional(v.id('documentMembers')),
+			type: v.union(v.literal('email'), v.literal('phone')),
+			code: v.string(),
+			expiresAt: v.number(),
+			attempts: v.number(),
+			usedAt: v.optional(v.number()),
+			sentAt: v.number(),
+			sentTo: v.string(),
+			ipAddress: v.optional(v.string())
+		})
+			.index('by_signer_and_type', ['signerId', 'type'])
+			.index('by_member_and_type', ['memberId', 'type'])
+			.index('by_expires', ['expiresAt']),
+
+		// ═══════════════════════════════════════════════════════════════
+		// COUNTERS - Sequential ID generators
 		// ═══════════════════════════════════════════════════════════════
 		counters: defineTable({
-			name: v.string(), // e.g., "certificate", "invoice"
-			year: v.number(), // e.g., 2026
-			currentValue: v.number(), // Current counter value
+			name: v.string(),
+			year: v.number(),
+			currentValue: v.number(),
 			updatedAt: v.number()
-		}).index('by_name_and_year', ['name', 'year'])
+		}).index('by_name_and_year', ['name', 'year']),
+
+		// ═══════════════════════════════════════════════════════════════
+		// ROADMAP - Public product roadmap and feature tracking
+		// ═══════════════════════════════════════════════════════════════
+		roadmapItems: defineTable({
+			title: v.string(),
+			description: v.string(),
+			status: v.union(
+				v.literal('planned'),
+				v.literal('in_progress'),
+				v.literal('completed')
+			),
+			quarter: v.string(), // "Q1 2026", "Q2 2026", etc.
+			priority: v.union(
+				v.literal('p0_critical'),
+				v.literal('p1_high'),
+				v.literal('p2_medium')
+			),
+			category: v.union(
+				v.literal('core_engine'),
+				v.literal('integration'),
+				v.literal('business_model'),
+				v.literal('sdk')
+			),
+			competitorKill: v.optional(v.string()), // Which competitor this kills
+			techStack: v.optional(v.string()), // "Svelte 5 Runes + Convex Subscriptions"
+			valueProposition: v.optional(v.string()), // "Sub-100ms latency"
+			order: v.number(), // Display order within quarter
+			isPublic: v.boolean(), // Show on public roadmap
+			createdAt: v.number(),
+			updatedAt: v.number()
+		})
+			.index('by_status', ['status'])
+			.index('by_quarter', ['quarter'])
+			.index('by_public', ['isPublic'])
+			.index('by_quarter_and_order', ['quarter', 'order'])
 	},
 	// Schema validation enabled for production
 	{ schemaValidation: false }
 );
+

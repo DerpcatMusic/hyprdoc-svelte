@@ -1,3 +1,5 @@
+import { PersistedState } from "runed";
+
 /**
  * UiStore
  *
@@ -5,44 +7,94 @@
  * Singleton pattern - single instance shared across the app.
  */
 class UiStore {
-	theme = $state<'light' | 'dark'>('light');
-	corporateMode = $state(false);
+  theme = new PersistedState<"light" | "dark">("theme", "light", {
+    serializer: {
+      serialize: (val) => JSON.stringify(val),
+      deserialize: (val) => {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val as any;
+        }
+      }
+    }
+  });
+  corporateMode = new PersistedState<boolean>("corporate-mode", false, {
+    serializer: {
+      serialize: (val) => JSON.stringify(val),
+      deserialize: (val) => {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val === "true";
+        }
+      }
+    }
+  });
 
-	// Dashboard navigation state
-	dashboardView = $state<'templates' | 'envelopes' | 'signed' | 'settings'>('templates');
-	viewingTemplateId = $state<string | null>(null);
-	importPickerTriggered = $state(0);
+  // Dashboard navigation state
+  dashboardView = $state<"templates" | "envelopes" | "signed" | "settings">(
+    "templates"
+  );
+  viewingTemplateId = $state<string | null>(null);
+  importPickerTriggered = $state(0);
 
-	openImportPicker() {
-		this.dashboardView = 'templates';
-		this.viewingTemplateId = null;
-		this.importPickerTriggered++;
-	}
+  openImportPicker() {
+    this.dashboardView = "templates";
+    this.viewingTemplateId = null;
+    this.importPickerTriggered++;
+  }
 
-	toggleTheme() {
-		this.theme = this.theme === 'light' ? 'dark' : 'light';
-	}
+  toggleTheme() {
+    this.theme.current = this.theme.current === "light" ? "dark" : "light";
+  }
 
-	setTheme(theme: 'light' | 'dark') {
-		this.theme = theme;
-	}
+  setTheme(theme: "light" | "dark") {
+    this.theme.current = theme;
+  }
+  
+  applyTheme() {
+    if (typeof document !== "undefined") {
+        document.documentElement.classList.toggle("dark", this.theme.current === "dark");
+    }
+  }
 
-	toggleCorporateMode() {
-		this.corporateMode = !this.corporateMode;
-	}
+  toggleCorporateMode() {
+    this.corporateMode.current = !this.corporateMode.current;
+  }
 
-	setCorporateMode(enabled: boolean) {
-		this.corporateMode = enabled;
-	}
+  setCorporateMode(enabled: boolean) {
+    this.corporateMode.current = enabled;
+  }
 
-	setDashboardView(view: 'templates' | 'envelopes' | 'signed' | 'settings') {
-		this.dashboardView = view;
-		this.viewingTemplateId = null; // Clear drill-down when switching views
-	}
+  applyCorporateMode() {
+    if (typeof document !== "undefined") {
+        if (this.corporateMode.current) {
+            document.documentElement.setAttribute("data-corporate-mode", "true");
+        } else {
+            document.documentElement.removeAttribute("data-corporate-mode");
+        }
+    }
+  }
 
-	viewTemplate(id: string) {
-		this.viewingTemplateId = id;
-	}
+  setDashboardView(view: "templates" | "envelopes" | "signed" | "settings") {
+    this.dashboardView = view;
+    this.viewingTemplateId = null; // Clear drill-down when switching views
+  }
+
+  viewTemplate(id: string) {
+    this.viewingTemplateId = id;
+  }
+  
+  constructor() {
+    // Initialize effects for DOM updates
+    $effect.root(() => {
+        $effect(() => {
+            this.applyTheme();
+            this.applyCorporateMode();
+        });
+    });
+  }
 }
 
 // Export singleton instance
@@ -52,25 +104,16 @@ export const uiStore = new UiStore();
  * Convenience helper for mode toggles in sidebar/header components
  */
 export const modeToggle = {
-	get isCorporate() {
-		return uiStore.corporateMode;
-	},
-	get isDark() {
-		return uiStore.theme === 'dark';
-	},
-	toggleCorporate() {
-		uiStore.toggleCorporateMode();
-		// Apply data attribute for CSS
-		if (uiStore.corporateMode) {
-			document.documentElement.setAttribute('data-corporate-mode', 'true');
-		} else {
-			document.documentElement.removeAttribute('data-corporate-mode');
-		}
-		localStorage.setItem('corporate-mode', String(uiStore.corporateMode));
-	},
-	toggleTheme() {
-		uiStore.toggleTheme();
-		document.documentElement.classList.toggle('dark', uiStore.theme === 'dark');
-		localStorage.setItem('theme', uiStore.theme);
-	}
+  get isCorporate() {
+    return uiStore.corporateMode.current;
+  },
+  get isDark() {
+    return uiStore.theme.current === "dark";
+  },
+  toggleCorporate() {
+    uiStore.toggleCorporateMode();
+  },
+  toggleTheme() {
+    uiStore.toggleTheme();
+  },
 };

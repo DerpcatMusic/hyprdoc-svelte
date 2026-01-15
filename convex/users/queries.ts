@@ -1,50 +1,37 @@
-import { v } from 'convex/values';
-import { internalQuery, query } from '@/convex/_generated/server';
-import { userReturnValidator } from '@/convex/lib/validators';
-
 /**
- * Get current user profile.
+ * users/queries.ts - User Queries
  */
+import { v } from "convex/values";
+import { query, protectedQuery, internalQuery } from "@/convex/lib/core";
+
 export const me = query({
 	args: {},
-	returns: v.union(userReturnValidator, v.null()),
 	handler: async (ctx) => {
-		const identity = await ctx.auth.getUserIdentity();
-		if (!identity) {
-			return null;
-		}
-
-		const user = await ctx.db
-			.query('users')
-			.withIndex('by_workos_id', (q) => q.eq('workosId', identity.subject))
-			.unique();
-
-		return user;
-	}
+		if (!ctx.user) return null;
+		return ctx.db.get(ctx.user._id);
+	},
 });
 
-/**
- * Get user by WorkOS ID.
- */
-export const get = query({
-	args: { workosId: v.string() },
-	returns: v.union(userReturnValidator, v.null()),
+export const getByWorkosId = protectedQuery({
+	args: {
+		workosId: v.string(),
+	},
 	handler: async (ctx, args) => {
-		return await ctx.db
-			.query('users')
-			.withIndex('by_workos_id', (q) => q.eq('workosId', args.workosId))
+		return ctx.db
+			.query("users")
+			.withIndex("by_workos_id", (q) => q.eq("workosId", args.workosId))
 			.unique();
-	}
+	},
 });
 
-/**
- * Get user by ID (internal use).
- */
-export const getUserInternal = internalQuery({
-	args: { workosId: v.id('users') },
-	returns: v.union(userReturnValidator, v.null()),
+export const internalGetByWorkosId = internalQuery({
+	args: {
+		workosId: v.string(),
+	},
 	handler: async (ctx, args) => {
-		return await ctx.db.get(args.workosId);
-	}
+		return ctx.db
+			.query("users")
+			.withIndex("by_workos_id", (q) => q.eq("workosId", args.workosId))
+			.unique();
+	},
 });
-

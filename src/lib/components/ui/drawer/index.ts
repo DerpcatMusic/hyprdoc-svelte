@@ -10,21 +10,21 @@ import Trigger from "./drawer-trigger.svelte";
 const _Portal = Root; // Explicit export if needed
 
 export {
-	Root,
-	Content,
-	Description,
-	Footer,
-	Header,
-	Overlay,
-	Title,
-	Trigger,
-	//
-	Root as Drawer,
-	Content as DrawerContent,
-	Description as DrawerDescription,
-	Footer as DrawerFooter,
-	Header as DrawerHeader,
-	Overlay as DrawerOverlay,
-	Title as DrawerTitle,
-	Trigger as DrawerTrigger,
+  Root,
+  Content,
+  Description,
+  Footer,
+  Header,
+  Overlay,
+  Title,
+  Trigger,
+  //
+  Root as Drawer,
+  Content as DrawerContent,
+  Description as DrawerDescription,
+  Footer as DrawerFooter,
+  Header as DrawerHeader,
+  Overlay as DrawerOverlay,
+  Title as DrawerTitle,
+  Trigger as DrawerTrigger,
 };

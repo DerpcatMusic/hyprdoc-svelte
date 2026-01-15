@@ -73,9 +73,14 @@ interface FrankfurterResponse {
  * @param to Target currency code (e.g., "EUR")
  * @returns Exchange rate (how many 'to' units per 1 'from' unit)
  */
-export async function fetchExchangeRate(from: string, to: string): Promise<number> {
+export async function fetchExchangeRate(
+  from: string,
+  to: string
+): Promise<number> {
   // Handle same currency case
-  if (from === to) { return 1; }
+  if (from === to) {
+    return 1;
+  }
 
   try {
     const response = await fetch(

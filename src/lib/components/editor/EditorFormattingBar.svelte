@@ -1,241 +1,175 @@
 <script lang="ts">
-	import { useEditor } from "$lib/editor/core/editor-context";
-	import ToolbarButton from "./toolbar/ToolbarButton.svelte";
-	import ToolbarDivider from "./toolbar/ToolbarDivider.svelte";
-	import ToolbarGroup from "./toolbar/ToolbarGroup.svelte";
-	import ToolbarColorPicker from "./toolbar/ToolbarColorPicker.svelte";
-	import ToolbarSliderInput from "./ToolbarSliderInput.svelte";
+  import { useEditorBrain } from "$lib/editor/core/EditorBrain.svelte";
+  import PrecisionInput from "./properties/PrecisionInput.svelte";
+  import ToolbarButton from "./toolbar/ToolbarButton.svelte";
+  import ToolbarColorPicker from "./toolbar/ToolbarColorPicker.svelte";
+  import ToolbarDivider from "./toolbar/ToolbarDivider.svelte";
+  import ToolbarGroup from "./toolbar/ToolbarGroup.svelte";
 
-	const engine = useEditor();
+  const brain = useEditorBrain();
+  const settings = $derived(brain.settings);
 
-	// Derived states for reactive UI
-	const heading1Active = $derived(engine.headingLevel === 1);
-	const heading2Active = $derived(engine.headingLevel === 2);
-	const bulletListActive = $derived(engine.isBulletList);
-	const orderedListActive = $derived(engine.isOrderedList);
-	const blockquoteActive = $derived(engine.isBlockquote);
-	const subscriptActive = $derived(engine.isSubscript);
-	const superscriptActive = $derived(engine.isSuperscript);
+  // Derived states
+  const heading1Active = $derived(brain.headingLevel === 1);
+  const heading2Active = $derived(brain.headingLevel === 2);
+  const heading3Active = $derived(brain.headingLevel === 3);
+  const bulletListActive = $derived(brain.isBulletList);
+  const orderedListActive = $derived(brain.isOrderedList);
+  const blockquoteActive = $derived(brain.isBlockquote);
 
-	let toolbarStyle = $state("top: 5rem; left: 50%; transform: translateX(-50%);"); // Default top position
-	let isInteracting = $state(false);
+  // Context Awareness
+  const isSelection = $derived(brain.selection.from !== brain.selection.to);
+  const displayFontSize = $derived(isSelection ? (brain.fontSize || settings.fontSize) : settings.fontSize);
+  const displayFontWeight = $derived(isSelection ? (brain.fontWeight || 400) : 400);
 
-	// Expose a way for child components (sliders, color pickers) to signal interaction
-	export function setInteracting(interacting: boolean) {
-		isInteracting = interacting;
-	}
+  let toolbarStyle = $state("top: 5rem; left: 50%; transform: translateX(-50%);");
+  let isInteracting = $state(false);
 
-	$effect(() => {
-		if (!engine?.editor || isInteracting) return;
+  export function setInteracting(interacting: boolean) {
+    isInteracting = interacting;
+  }
 
-		// Listen to selection changes to update position
-		const { from, to } = engine.selection;
-		const editorSelection = engine.editor.state.selection;
-		
-		// Only float if:
-		// 1. There is a range selected (from !== to)
-		// 2. It's NOT a NodeSelection (NodeSelections have a .node property)
-		//    We want to keep the toolbar fixed for block selections like Smart Blocks
-		const isTextSelection = from !== to && !('node' in editorSelection);
+  $effect(() => {
+    if (!brain.editor || isInteracting) return;
 
-		if (isTextSelection) {
-			const { view } = engine.editor;
-			try {
-				const start = view.coordsAtPos(from);
-				const end = view.coordsAtPos(to);
-				
-				// Calculate a bounding box-like center from start/end
-				// (Simplified, but more stable than window.getSelection during blur)
-				const top = Math.min(start.top, end.top);
-				const bottom = Math.max(start.bottom, end.bottom);
-				const left = (start.left + end.left) / 2;
-				const width = Math.abs(end.left - start.left) || 20;
+    const { from, to } = brain.selection;
+    const isTextSelection = from !== to && !("node" in brain.editor.state.selection);
 
-				const HEADER_HEIGHT = 60; 
-				const TOOLBAR_HEIGHT = 50;
-				
-				let finalTop = top - TOOLBAR_HEIGHT - 10;
-				if (finalTop < HEADER_HEIGHT) {
-					finalTop = bottom + 10;
-				}
+    if (isTextSelection) {
+      const { view } = brain.editor;
+      try {
+        const start = view.coordsAtPos(from);
+        const end = view.coordsAtPos(to);
+        const top = Math.min(start.top, end.top);
+        const bottom = Math.max(start.bottom, end.bottom);
+        const left = (start.left + end.left) / 2;
 
-				toolbarStyle = `top: ${finalTop}px; left: ${left}px; transform: translateX(-50%); transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);`;
-			} catch (e) {
-				// Fallback to top if coordinates can't be calculated
-				toolbarStyle = "top: 5rem; left: 50%; transform: translateX(-50%); transition: all 0.3s ease-out;";
-			}
-		} else {
-			// Default fixed position at the top
-			toolbarStyle = "top: 5rem; left: 50%; transform: translateX(-50%); transition: all 0.3s ease-out;";
-		}
-	});
+        if (isNaN(top) || isNaN(left)) {
+           throw new Error("Invalid coordinates");
+        }
+
+        const HEADER_HEIGHT = 60;
+        const TOOLBAR_HEIGHT = 50;
+
+        let finalTop = top - TOOLBAR_HEIGHT - 10;
+        if (finalTop < HEADER_HEIGHT) finalTop = bottom + 10;
+
+        toolbarStyle = `top: ${finalTop}px; left: ${left}px; transform: translateX(-50%); transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);`;
+      } catch (e) {
+        toolbarStyle = "top: 5rem; left: 50%; transform: translateX(-50%); transition: all 0.3s ease-out;";
+      }
+    } else {
+      toolbarStyle = "top: 5rem; left: 50%; transform: translateX(-50%); transition: all 0.3s ease-out;";
+    }
+  });
+
+  // Size handler
+  const handleSizeChange = (val: number) => {
+    if (isSelection) {
+      brain.setFontSize(val);
+    } else {
+      brain.updateSettings({ fontSize: val });
+    }
+  };
+
+  // Insertion Commands
+  const addTable = () => brain.editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+  const addTasklist = () => brain.editor?.chain().focus().toggleTaskList().run();
+  const addDetails = () => brain.editor?.chain().focus().setDetails().run();
+  const addMath = () => brain.editor?.chain().focus().insertContent('$').run();
+  const addImage = () => {
+    const url = window.prompt('URL');
+    if (url) brain.editor?.chain().focus().setImage({ src: url }).run();
+  };
 </script>
 
-{#if engine}
-	<div 
-		class="fixed z-[100] flex items-center gap-1 p-1.5 rounded-xl border border-border/60 bg-card shadow-premium animate-in fade-in zoom-in-95 duration-300"
-		style={toolbarStyle}
-	>
-		<!-- Text Style Group -->
-		<ToolbarGroup>
-			<ToolbarButton 
-				onclick={() => engine.toggleBold()} 
-				isActive={engine.isBold} 
-				label="Bold" 
-				shortcut="⌘B" 
-				iconClass="i-lucide-bold" 
-			/>
-			<ToolbarButton 
-				onclick={() => engine.toggleItalic()} 
-				isActive={engine.isItalic} 
-				label="Italic" 
-				shortcut="⌘I" 
-				iconClass="i-lucide-italic" 
-			/>
-			<ToolbarButton 
-				onclick={() => engine.toggleUnderline()} 
-				isActive={engine.isUnderline} 
-				label="Underline" 
-				shortcut="⌘U" 
-				iconClass="i-lucide-underline" 
-			/>
-			<ToolbarButton 
-				onclick={() => engine.toggleStrike()} 
-				isActive={engine.isStrike} 
-				label="Strikethrough" 
-				shortcut="⌘⇧X" 
-				iconClass="i-lucide-strikethrough" 
-			/>
-		</ToolbarGroup>
+{#if brain.editor}
+  <div
+    class="fixed z-[100] flex items-center gap-1 p-1.5 rounded-xl border border-border/60 bg-card shadow-premium animate-in fade-in zoom-in-95 duration-300"
+    style={toolbarStyle}
+  >
+    <!-- 1. TEXT STYLE -->
+    <ToolbarGroup>
+      <ToolbarButton onclick={() => brain.toggleBold()} isActive={brain.isBold} label="Bold" shortcut="⌘B" iconClass="i-lucide-bold" />
+      <ToolbarButton onclick={() => brain.toggleItalic()} isActive={brain.isItalic} label="Italic" shortcut="⌘I" iconClass="i-lucide-italic" />
+      <ToolbarButton onclick={() => brain.toggleUnderline()} isActive={brain.isUnderline} label="Underline" shortcut="⌘U" iconClass="i-lucide-underline" />
+      <ToolbarButton onclick={() => brain.toggleStrike()} isActive={brain.isStrike} label="Strikethrough" shortcut="⌘⇧X" iconClass="i-lucide-strikethrough" />
+    </ToolbarGroup>
 
-		<ToolbarDivider />
+    <ToolbarDivider />
 
-		<!-- Heading & Blocks -->
-		<ToolbarGroup>
-			<ToolbarButton 
-				onclick={() => engine.toggleHeading(1)} 
-				isActive={heading1Active} 
-				label="Heading 1" 
-				shortcut="⌘⌥1" 
-				iconClass="i-lucide-heading-1" 
-			/>
-			<ToolbarButton 
-				onclick={() => engine.toggleHeading(2)} 
-				isActive={heading2Active} 
-				label="Heading 2" 
-				shortcut="⌘⌥2" 
-				iconClass="i-lucide-heading-2" 
-			/>
-			<ToolbarButton 
-				onclick={() => engine.toggleBlockquote()} 
-				isActive={blockquoteActive} 
-				label="Blockquote" 
-				shortcut="⌘⇧B" 
-				iconClass="i-lucide-quote" 
-			/>
-		</ToolbarGroup>
+    <!-- 2. HEADINGS -->
+    <ToolbarGroup>
+      <ToolbarButton onclick={() => brain.toggleHeading(1)} isActive={heading1Active} label="Heading 1" shortcut="⌘⌥1" iconClass="i-lucide-heading-1" />
+      <ToolbarButton onclick={() => brain.toggleHeading(2)} isActive={heading2Active} label="Heading 2" shortcut="⌘⌥2" iconClass="i-lucide-heading-2" />
+      <ToolbarButton onclick={() => brain.toggleHeading(3)} isActive={heading3Active} label="Heading 3" shortcut="⌘⌥3" iconClass="i-lucide-heading-3" />
+    </ToolbarGroup>
 
-		<ToolbarDivider />
+    <ToolbarDivider />
 
-		<!-- Alignment -->
-		<ToolbarGroup>
-			<ToolbarButton 
-				onclick={() => engine.setTextAlign('left')} 
-				isActive={engine.textAlign === 'left'} 
-				label="Align Left" 
-				iconClass="i-lucide-text-align-start" 
-			/>
-			<ToolbarButton 
-				onclick={() => engine.setTextAlign('center')} 
-				isActive={engine.textAlign === 'center'} 
-				label="Align Center" 
-				iconClass="i-lucide-text-align-center" 
-			/>
-			<ToolbarButton 
-				onclick={() => engine.setTextAlign('right')} 
-				isActive={engine.textAlign === 'right'} 
-				label="Align Right" 
-				iconClass="i-lucide-text-align-end" 
-			/>
-		</ToolbarGroup>
+    <!-- 3. RICH ELEMENTS -->
+    <ToolbarGroup>
+      <ToolbarButton onclick={addTable} label="Table" iconClass="i-lucide-table" />
+      <ToolbarButton onclick={addTasklist} label="Task List" iconClass="i-lucide-list-todo" />
+      <ToolbarButton onclick={addDetails} label="Collapsible" iconClass="i-lucide-chevron-down-square" />
+      <ToolbarButton onclick={addMath} label="LaTeX" iconClass="i-lucide-sigma" />
+      <ToolbarButton onclick={addImage} label="Image" iconClass="i-lucide-image" />
+    </ToolbarGroup>
 
-		<ToolbarDivider />
+    <ToolbarDivider />
 
-		<!-- Lists -->
-		<ToolbarGroup>
-			<ToolbarButton 
-				onclick={() => engine.toggleBulletList()} 
-				isActive={bulletListActive} 
-				label="Bullet List" 
-				iconClass="i-lucide-list" 
-			/>
-			<ToolbarButton 
-				onclick={() => engine.toggleOrderedList()} 
-				isActive={orderedListActive} 
-				label="Numbered List" 
-				iconClass="i-lucide-list-ordered" 
-			/>
-		</ToolbarGroup>
+    <!-- 4. ALIGNMENT & LISTS -->
+    <ToolbarGroup>
+      <ToolbarButton onclick={() => brain.setTextAlign('left')} isActive={brain.textAlign === 'left'} label="Left" iconClass="i-lucide-align-left" />
+      <ToolbarButton onclick={() => brain.setTextAlign('center')} isActive={brain.textAlign === 'center'} label="Center" iconClass="i-lucide-align-center" />
+      <ToolbarButton onclick={() => brain.setTextAlign('right')} isActive={brain.textAlign === 'right'} label="Right" iconClass="i-lucide-align-right" />
+      <ToolbarButton onclick={() => brain.toggleBulletList()} isActive={bulletListActive} label="Bullets" iconClass="i-lucide-list" />
+      <ToolbarButton onclick={() => brain.toggleOrderedList()} isActive={orderedListActive} label="Numbers" iconClass="i-lucide-list-ordered" />
+    </ToolbarGroup>
 
-		<ToolbarDivider />
+    <ToolbarDivider />
 
-		<!-- Specialized Actions -->
-		<ToolbarGroup>
-			<ToolbarButton 
-				onclick={() => engine.toggleSubscript()} 
-				isActive={subscriptActive} 
-				label="Subscript" 
-				iconClass="i-lucide-subscript" 
-			/>
-			<ToolbarButton 
-				onclick={() => engine.toggleSuperscript()} 
-				isActive={superscriptActive} 
-				label="Superscript" 
-				iconClass="i-lucide-superscript" 
-			/>
-			<ToolbarColorPicker 
-				value={engine.highlightColor} 
-				onColorSelect={(c) => engine.setHighlight(c)} 
-				label="Highlight" 
-				iconClass="i-lucide-highlighter" 
-				onInteractionChange={setInteracting}
-			/>
-			<ToolbarButton 
-				onclick={() => engine.setHorizontalRule()} 
-				label="Horizontal Rule" 
-				iconClass="i-lucide-minus" 
-			/>
-		</ToolbarGroup>
-		
-		<ToolbarDivider />
+    <!-- 5. COLORS -->
+    <ToolbarGroup>
+      <ToolbarColorPicker
+        value={brain.highlightColor}
+        onColorSelect={(c) => brain.setHighlight(c)}
+        label="Highlight"
+        iconClass="i-lucide-highlighter"
+        onInteractionChange={setInteracting}
+      />
+      <ToolbarButton onclick={() => brain.toggleSubscript()} isActive={brain.isSubscript} label="Sub" iconClass="i-lucide-subscript" />
+      <ToolbarButton onclick={() => brain.toggleSuperscript()} isActive={brain.isSuperscript} label="Super" iconClass="i-lucide-superscript" />
+    </ToolbarGroup>
 
-		<!-- Font Properties (Sliders) - Moved to end -->
-		<div class="flex items-center gap-1 px-1">
-			<ToolbarSliderInput 
-				label="Size"
-				value={engine.fontSize || 16}
-				onValueChange={(v) => engine.setFontSize(v)}
-				min={8}
-				max={72}
-				unit="px"
-				onInteractionChange={setInteracting}
-			/>
-			<ToolbarSliderInput 
-				label="Weight"
-				value={engine.fontWeight || 400}
-				onValueChange={(v) => engine.setFontWeight(v)}
-				min={100}
-				max={900}
-				step={100}
-				onInteractionChange={setInteracting}
-			/>
-		</div>
-	</div>
+    <!-- FLEX SPACER -->
+    <div class="w-8"></div>
+
+    <!-- 6. FONT PROPERTIES (RIGHT ALIGNED) -->
+    <div class="flex items-center gap-2 px-1">
+      <PrecisionInput
+        label="Size"
+        value={displayFontSize}
+        onChange={handleSizeChange}
+        min={8}
+        max={144}
+        unitDisplay="px"
+        className="w-20"
+      />
+      
+      <PrecisionInput
+        label="Weight"
+        value={displayFontWeight}
+        onChange={(v) => brain.setFontWeight(v)}
+        min={100}
+        max={900}
+        step={1}
+        className="w-24"
+      />
+    </div>
+  </div>
 {/if}
 
 <style>
-	/* Custom scrollbar for small screens overflow */
-	div::-webkit-scrollbar {
-		display: none;
-	}
+  div::-webkit-scrollbar { display: none; }
 </style>

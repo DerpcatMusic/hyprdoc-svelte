@@ -1,52 +1,136 @@
 <script lang="ts">
-import { getContext } from 'svelte';
-import { Button } from '$lib/components/ui/button';
-import { AuthState } from '$lib/stores/auth-state.svelte';
+  import { onMount } from "svelte";
+  import { Spinner } from "$lib/components/ui/spinner";
+  import { Button } from "$lib/components/ui/button";
+  import { Mail, Shield, Lock, Fingerprint, ArrowRight } from "lucide-svelte";
+  import gsap from "gsap";
 
-// Access auth state if needed to check if already logged in (though middleware handles this)
-// import { AUTH_KEY } from '$lib/stores/auth-state.svelte';
+  let container = $state<HTMLElement>();
+  let isLoading = $state(false);
 
-let isLoading = $state(false);
+  onMount(() => {
+    if (container) {
+      gsap.from(".auth-card", {
+        scale: 0.95,
+        opacity: 0,
+        duration: 0.8,
+        ease: "power4.out"
+      });
+      
+      gsap.to(".grid-line", {
+        opacity: 0.1,
+        duration: 2,
+        stagger: 0.1,
+        repeat: -1,
+        yoyo: true
+      });
+    }
+  });
 
-async function handleLogin() {
-	isLoading = true;
-	// Redirect to WorkOS hosted login or custom API endpoint that generates auth URL
-	// Typically we can hit an API route or a server action.
-	// For simplicity, let's assume we have an endpoint or we just redirect.
-	window.location.href = '/auth/login';
-}
+  function handleAuth(method: string) {
+    isLoading = true;
+    // Redirect to WorkOS endpoint with specific hints
+    window.location.href = `/auth/login?method=${method}`;
+  }
 </script>
 
-<div class="flex min-h-screen items-center justify-center bg-muted/50 p-4">
-	<div class="w-full max-w-md space-y-8 rounded-xl border bg-card p-10 shadow-lg">
-		<div class="space-y-2 text-center">
-			<h1 class="font-display text-4xl font-bold tracking-tight">HyprDoc</h1>
-			<p class="text-muted-foreground">The God-tier contract platform</p>
-		</div>
+<div bind:this={container} class="relative flex min-h-screen items-center justify-center bg-background overflow-hidden font-sans">
+  <!-- Background Grid -->
+  <div class="absolute inset-0 z-0 pointer-events-none opacity-[0.03]">
+    <div class="grid grid-cols-12 h-full w-full">
+      {#each Array(12) as _}
+        <div class="grid-line border-r border-primary h-full"></div>
+      {/each}
+    </div>
+  </div>
 
-		<div class="space-y-4">
-			<Button
-				variant="outline"
-				class="w-full gap-2 text-base h-12 relative overflow-hidden group"
-				onclick={handleLogin}
-				disabled={isLoading}
-			>
-				{#if isLoading}
-					<div class="absolute inset-0 flex items-center justify-center bg-background/50">
-						<div
-							class="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"
-						></div>
-					</div>
-				{/if}
-				<span class="i-lucide-log-in text-xl"></span>
-				Sign in with WorkOS
-			</Button>
-		</div>
+  <div class="auth-card relative z-10 w-full max-w-lg p-1">
+    <div class="bg-card/50 backdrop-blur-3xl border border-border/50 rounded-[2.5rem] p-12 shadow-2xl shadow-primary/5 space-y-12">
+      
+      <!-- Header -->
+      <div class="text-center space-y-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary text-[10px] font-bold uppercase tracking-widest italic animate-pulse">
+           Encrypted Protocol
+        </div>
+        <h1 class="text-5xl font-bold font-display tracking-tighter text-foreground uppercase italic">
+          HyprDoc <span class="text-primary">Auth</span>
+        </h1>
+        <p class="text-muted-foreground font-medium">Access your sovereign workspace.</p>
+      </div>
 
-		<div class="text-center text-sm text-muted-foreground">
-			By signing in, you agree to our
-			<a href="/terms" class="underline hover:text-primary">Terms</a> and
-			<a href="/privacy" class="underline hover:text-primary">Privacy Policy</a>.
-		</div>
-	</div>
+      <!-- Auth Methods -->
+      <div class="grid gap-4">
+         <button 
+           onclick={() => handleAuth('google')}
+           class="group flex items-center justify-between p-6 rounded-2xl border border-border bg-card/50 hover:border-primary/50 hover:bg-card transition-all active:scale-[0.98]"
+         >
+           <div class="flex items-center gap-4">
+              <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-muted group-hover:bg-primary/10 transition-colors">
+                <Mail class="text-muted-foreground group-hover:text-primary transition-colors" size={20} />
+              </div>
+              <div class="text-left">
+                <div class="font-bold text-foreground">Standard Access</div>
+                <div class="text-xs text-muted-foreground">Continue with Google / Email</div>
+              </div>
+           </div>
+           <ArrowRight size={18} class="text-muted-foreground group-hover:text-primary transition-all group-hover:translate-x-1" />
+         </button>
+
+         <button 
+           onclick={() => handleAuth('sso')}
+           class="group flex items-center justify-between p-6 rounded-2xl border border-border bg-card/50 hover:border-primary/50 hover:bg-card transition-all active:scale-[0.98]"
+         >
+           <div class="flex items-center gap-4">
+              <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-muted group-hover:bg-primary/10 transition-colors">
+                <Shield class="text-muted-foreground group-hover:text-primary transition-colors" size={20} />
+              </div>
+              <div class="text-left">
+                <div class="font-bold text-foreground">Enterprise Protocol</div>
+                <div class="text-xs text-muted-foreground">Single Sign-On (SSO)</div>
+              </div>
+           </div>
+           <ArrowRight size={18} class="text-muted-foreground group-hover:text-primary transition-all group-hover:translate-x-1" />
+         </button>
+
+         <button 
+           onclick={() => handleAuth('passkey')}
+           class="group flex items-center justify-between p-6 rounded-2xl border border-border bg-card/50 hover:border-primary/50 hover:bg-card transition-all active:scale-[0.98]"
+         >
+           <div class="flex items-center gap-4">
+              <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-muted group-hover:bg-primary/10 transition-colors">
+                <Fingerprint class="text-muted-foreground group-hover:text-primary transition-colors" size={20} />
+              </div>
+              <div class="text-left">
+                <div class="font-bold text-foreground">Biometric Key</div>
+                <div class="text-xs text-muted-foreground">Passkey / WebAuthn</div>
+              </div>
+           </div>
+           <ArrowRight size={18} class="text-muted-foreground group-hover:text-primary transition-all group-hover:translate-x-1" />
+         </button>
+      </div>
+
+      <!-- Trust Nodes -->
+      <div class="flex items-center justify-center gap-8 py-4 border-t border-border/30">
+         <div class="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+            <Lock size={12} class="text-primary/50" />
+            SOC 2 Type II
+         </div>
+         <div class="h-4 w-px bg-border/50"></div>
+         <div class="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+            <Shield size={12} class="text-primary/50" />
+            GDPR Ready
+         </div>
+      </div>
+
+    </div>
+  </div>
+
+  {#if isLoading}
+    <div class="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-md transition-opacity">
+       <div class="flex flex-col items-center gap-4">
+          <Spinner size="lg" class="text-primary" />
+          <p class="font-mono text-xs uppercase tracking-widest text-primary font-bold animate-pulse">Initializing Handshake...</p>
+       </div>
+    </div>
+  {/if}
 </div>

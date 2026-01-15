@@ -110,7 +110,9 @@ export function zodToConvex(zodType: z.ZodTypeAny): ConvexValidator {
   if (typeName === "ZodEnum" || typeName === "enum") {
     // Zod 4: enum values are in .values or direct on the schema via .enum
     const enumValues: string[] =
-      zodDef?.entries || zodDef?.values || Object.values((zodType as any).enum || {});
+      zodDef?.entries ||
+      zodDef?.values ||
+      Object.values((zodType as any).enum || {});
 
     if (enumValues && enumValues.length > 0) {
       if (enumValues.length === 1) {
@@ -151,7 +153,9 @@ export function zodToConvex(zodType: z.ZodTypeAny): ConvexValidator {
         return hasNull ? v.optional(result) : result;
       }
 
-      const union = v.union(...validValues.map((val: string | number | boolean) => v.literal(val)));
+      const union = v.union(
+        ...validValues.map((val: string | number | boolean) => v.literal(val))
+      );
       return hasNull ? v.optional(union) : union;
     }
 
@@ -291,7 +295,9 @@ export function zodSchemaToConvexValidator<T extends z.ZodRawShape>(
   const zodShape = (schema as any).shape;
 
   if (!zodShape) {
-    console.warn("zodSchemaToConvexValidator received non-object schema, returning v.any()");
+    console.warn(
+      "zodSchemaToConvexValidator received non-object schema, returning v.any()"
+    );
     return v.any();
   }
 

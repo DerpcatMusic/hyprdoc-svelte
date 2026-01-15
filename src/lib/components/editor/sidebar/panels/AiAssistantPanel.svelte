@@ -1,6 +1,4 @@
 <script lang="ts">
-	// Placeholder
+  // Placeholder
 </script>
-<div class="p-4 text-sm text-muted-foreground">
-	AI Assistant (Coming Soon)
-</div>
+<div class="p-4 text-sm text-muted-foreground">AI Assistant (Coming Soon)</div>

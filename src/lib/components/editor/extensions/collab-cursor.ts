@@ -99,10 +99,15 @@ export const CollabCursorExtension = Extension.create<CollabCursorOptions>({
 
             for (const user of users) {
               // Skip current user
-              if (user.id === currentUserId || !user.cursor) { continue; }
+              if (user.id === currentUserId || !user.cursor) {
+                continue;
+              }
 
               // Validate cursor position is within document bounds
-              const cursorPos = Math.min(Math.max(0, user.cursor.position), docSize);
+              const cursorPos = Math.min(
+                Math.max(0, user.cursor.position),
+                docSize
+              );
 
               // Create cursor caret widget
               const cursorWidget = document.createElement("span");

@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { buttonVariants } from "$lib/components/ui/button/index.js";
-	import { cn } from "$lib/utils.js";
-	import { Calendar as CalendarPrimitive } from "bits-ui";
+  import { Calendar as CalendarPrimitive } from "bits-ui";
+  import { buttonVariants } from "$lib/components/ui/button/index.js";
+  import { cn } from "$lib/utils.js";
 
-	let {
-		ref = $bindable(null),
-		class: className,
-		...restProps
-	}: CalendarPrimitive.DayProps = $props();
+  let {
+    ref = $bindable(null),
+    class: className,
+    ...restProps
+  }: CalendarPrimitive.DayProps = $props();
 </script>
 
 <CalendarPrimitive.Day
-	bind:ref
-	class={cn(
+  bind:ref
+  class={cn(
 		buttonVariants({ variant: "ghost" }),
 		"flex size-(--cell-size) flex-col items-center justify-center gap-1 p-0 leading-none font-normal whitespace-nowrap select-none",
 		"[&[data-today]:not([data-selected])]:bg-accent [&[data-today]:not([data-selected])]:text-accent-foreground [&[data-today][data-disabled]]:text-muted-foreground",
@@ -31,5 +31,5 @@
 		"[&>span]:text-xs [&>span]:opacity-70",
 		className
 	)}
-	{...restProps}
+  {...restProps}
 />

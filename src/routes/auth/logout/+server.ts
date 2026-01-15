@@ -1,13 +1,24 @@
 import { redirect } from '@sveltejs/kit';
-import { destroySession, getLogoutUrl } from '$lib/auth/session.server';
+import { workos, getSessionCookie, clearSessionCookie } from '$lib/server/workos';
+import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ cookies }) => {
-	const logoutUrl = await getLogoutUrl(cookies);
-	destroySession(cookies);
+	const sealedSession = getSessionCookie(cookies);
 
-	if (logoutUrl) {
-		throw redirect(302, logoutUrl);
+	if (sealedSession) {
+		try {
+			const session = workos.userManagement.loadSealedSession({
+				sessionData: sealedSession,
+				cookiePassword: env.WORKOS_COOKIE_PASSWORD!
+			});
+			const url = await session.getLogoutUrl();
+			clearSessionCookie(cookies);
+			throw redirect(302, url);
+		} catch (e) {
+			if (e instanceof Response) throw e;
+			clearSessionCookie(cookies);
+		}
 	}
 
 	throw redirect(302, '/');

@@ -6,12 +6,11 @@
  */
 
 // Main parser function
-export { configurePDFWorker, parsePDFToTiptap } from './pdf-parser';
+export { configurePDFWorker, parsePDFToTiptap } from "./pdf-parser";
 
 // Types for external use
 export type {
-	PDFParseResult,
-	TiptapBlockNode,
-	TiptapDocument,
-	TiptapSmartBlockNode
-} from './pdf-types';
+  PDFParseResult,
+  TiptapBlockNode,
+  TiptapDocument,
+} from "./pdf-types";

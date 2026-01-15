@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { cn } from "$lib/utils";
-	import type { HTMLAttributes } from "svelte/elements";
+  import type { HTMLAttributes } from "svelte/elements";
+  import { cn } from "$lib/utils";
 
-	const {
-		class: className,
-		children,
-		...restProps
-	}: HTMLAttributes<HTMLTableSectionElement> = $props();
+  const {
+    class: className,
+    children,
+    ...restProps
+  }: HTMLAttributes<HTMLTableSectionElement> = $props();
 </script>
 
 <thead class={cn("[&_tr]:border-b", className)} {...restProps}>
-	{@render children?.()}
+  {@render children?.()}
 </thead>

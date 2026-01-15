@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Menubar as MenubarPrimitive } from "bits-ui";
+  import { Menubar as MenubarPrimitive } from "bits-ui";
 
-	const { ...restProps }: MenubarPrimitive.MenuProps = $props();
+  const { ...restProps }: MenubarPrimitive.MenuProps = $props();
 </script>
 
 <MenubarPrimitive.Menu {...restProps} />

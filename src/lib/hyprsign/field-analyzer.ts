@@ -1,20 +1,28 @@
 import { PDFCheckBox, PDFDocument, type PDFField, PDFTextField } from "pdf-lib";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { v4 as uuidv4 } from "uuid";
-import type { DetectedField, UserProfile } from "$lib/components/hyprsign/types";
+import type {
+  DetectedField,
+  UserProfile,
+} from "./types";
 import type { NormalizedTextItem } from "$lib/import/pdf-types";
 import {
   extractTextFromPage,
   groupIntoLines,
   mergeLineToString,
 } from "$lib/import/text-extractor";
-import { findProfileMatch, inferFieldType, scanLineForPatterns } from "./field-patterns";
+import {
+  findProfileMatch,
+  inferFieldType,
+  scanLineForPatterns,
+} from "./field-patterns";
 
 // Configure pdf.js worker for server-side use
 // The legacy build supports fake worker mode when workerSrc points to the legacy worker
 if (typeof window === "undefined") {
   // Server-side: use legacy fake worker
-  pdfjs.GlobalWorkerOptions.workerSrc = "pdfjs-dist/legacy/build/pdf.worker.mjs";
+  pdfjs.GlobalWorkerOptions.workerSrc =
+    "pdfjs-dist/legacy/build/pdf.worker.mjs";
 } else {
   // Client-side: use CDN worker
   pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -26,12 +34,20 @@ if (typeof window === "undefined") {
 function getFieldType(field: PDFField): DetectedField["type"] {
   if (field instanceof PDFTextField) {
     const name = field.getName().toLowerCase();
-    if (name.includes("date") || name.includes("dob")) { return "date"; }
-    if (name.includes("signature") || name.includes("sign")) { return "signature"; }
-    if (name.includes("initial")) { return "initials"; }
+    if (name.includes("date") || name.includes("dob")) {
+      return "date";
+    }
+    if (name.includes("signature") || name.includes("sign")) {
+      return "signature";
+    }
+    if (name.includes("initial")) {
+      return "initials";
+    }
     return "text";
   }
-  if (field instanceof PDFCheckBox) { return "checkbox"; }
+  if (field instanceof PDFCheckBox) {
+    return "checkbox";
+  }
   return "text";
 }
 
@@ -55,7 +71,9 @@ function getFieldBoundingBox(
 
   try {
     const widgets = field.acroField.getWidgets();
-    if (widgets.length === 0) { return defaultBox; }
+    if (widgets.length === 0) {
+      return defaultBox;
+    }
 
     const widget = widgets[0];
     const rect = widget.getRectangle();
@@ -81,7 +99,9 @@ export async function analyzeDocumentFields(
   userProfile: UserProfile
 ): Promise<DetectedField[]> {
   const arrayBuffer = await file.arrayBuffer();
-  const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+  const pdfDoc = await PDFDocument.load(arrayBuffer, {
+    ignoreEncryption: true,
+  });
 
   const fields: DetectedField[] = [];
   const form = pdfDoc.getForm();
@@ -100,7 +120,9 @@ export async function analyzeDocumentFields(
 
     // Try to match label to profile
     const matchedKey = findProfileMatch(fieldName);
-    const autoFilledValue = matchedKey ? (userProfile as any)[matchedKey] : null;
+    const autoFilledValue = matchedKey
+      ? (userProfile as any)[matchedKey]
+      : null;
 
     const boundingBox = getFieldBoundingBox(field, pageWidth, pageHeight, 0);
 
@@ -146,17 +168,25 @@ export async function analyzeDocumentFields(
           const yOverlapThreshold = 0.015;
           const physicallyOverlaps =
             existing.boundingBox.page === pf.boundingBox.page &&
-            Math.abs(existing.boundingBox.x - pf.boundingBox.x) < xOverlapThreshold &&
-            Math.abs(existing.boundingBox.y - pf.boundingBox.y) < yOverlapThreshold;
+            Math.abs(existing.boundingBox.x - pf.boundingBox.x) <
+              xOverlapThreshold &&
+            Math.abs(existing.boundingBox.y - pf.boundingBox.y) <
+              yOverlapThreshold;
 
           // Rule 1: If labels overlap AND they are on the same line, it's almost certainly a duplicate
-          if (labelsOverlap && onSameLine) { return true; }
+          if (labelsOverlap && onSameLine) {
+            return true;
+          }
 
           // Rule 2: Avoid merging fields with different labels unless they physically collide
-          if (physicallyOverlaps && labelsOverlap) { return true; }
+          if (physicallyOverlaps && labelsOverlap) {
+            return true;
+          }
 
           // Rule 3: Extreme physical overlap (fallback for unlabeled fields)
-          if (physicallyOverlaps && pfLabel === "field") { return true; }
+          if (physicallyOverlaps && pfLabel === "field") {
+            return true;
+          }
 
           return false;
         });
@@ -173,7 +203,11 @@ export async function analyzeDocumentFields(
   // If still no fields found, create placeholder fields
   if (fields.length === 0) {
     // Add common placeholder fields that will be positioned via AI
-    const commonFields: Array<{ label: string; type: DetectedField["type"]; y: number }> = [
+    const commonFields: Array<{
+      label: string;
+      type: DetectedField["type"];
+      y: number;
+    }> = [
       { label: "Full Name", type: "text", y: 0.15 },
       { label: "Date", type: "date", y: 0.2 },
       { label: "Address", type: "text", y: 0.25 },
@@ -186,7 +220,9 @@ export async function analyzeDocumentFields(
     for (let i = 0; i < commonFields.length; i++) {
       const { label, type, y } = commonFields[i];
       const matchedKey = findProfileMatch(label);
-      const autoFilledValue = matchedKey ? (userProfile as any)[matchedKey] : null;
+      const autoFilledValue = matchedKey
+        ? (userProfile as any)[matchedKey]
+        : null;
 
       fields.push({
         id: `placeholder-${i}`,
@@ -243,10 +279,14 @@ async function extractFieldsFromText(
       const pageHeight = viewport.height || 792;
 
       const textItems = await extractTextFromPage(page, pageNum);
-      console.log(`[HyprSign Tier2] Page ${pageNum}: extracted ${textItems.length} text items`);
+      console.log(
+        `[HyprSign Tier2] Page ${pageNum}: extracted ${textItems.length} text items`
+      );
 
       const lines = groupIntoLines(textItems);
-      console.log(`[HyprSign Tier2] Page ${pageNum}: grouped into ${lines.length} lines`);
+      console.log(
+        `[HyprSign Tier2] Page ${pageNum}: grouped into ${lines.length} lines`
+      );
 
       // Log first 10 lines for debugging
       if (pageNum === pdf.numPages) {
@@ -264,13 +304,19 @@ async function extractFieldsFromText(
         const fontSizePoints = firstItem.fontSize || 12;
 
         // Helper to get precise X coordinate by mapping string offset back to text items
-        const getPreciseXHelper = (lineItems: NormalizedTextItem[], charOffset: number) => {
+        const getPreciseXHelper = (
+          lineItems: NormalizedTextItem[],
+          charOffset: number
+        ) => {
           let currentStrLen = 0;
           for (let i = 0; i < lineItems.length; i++) {
             const item = lineItems[i];
             const itemLen = item.content.length;
 
-            if (charOffset >= currentStrLen && charOffset <= currentStrLen + itemLen) {
+            if (
+              charOffset >= currentStrLen &&
+              charOffset <= currentStrLen + itemLen
+            ) {
               // The match starts within or at the beginning of this text item
               const offsetInItem = charOffset - currentStrLen;
               const charWidth = fontSizePoints * 0.45; // Proportional font estimate
@@ -296,9 +342,14 @@ async function extractFieldsFromText(
           lineText.toLowerCase().includes("date:")
         ) {
           console.log(`[HyprSign] Scanning line: "${lineText.slice(0, 100)}"`);
-          console.log(`[HyprSign] Pattern matches found: ${patternMatches.length}`);
+          console.log(
+            `[HyprSign] Pattern matches found: ${patternMatches.length}`
+          );
           if (patternMatches.length > 0) {
-            console.log("[HyprSign] Matches:", JSON.stringify(patternMatches, null, 2));
+            console.log(
+              "[HyprSign] Matches:",
+              JSON.stringify(patternMatches, null, 2)
+            );
           }
         }
 
@@ -336,7 +387,8 @@ async function extractFieldsFromText(
             const physicallyOverlaps =
               existing.boundingBox.page === pageNum &&
               Math.abs(
-                existing.boundingBox.x - getPreciseXHelper(line, match.matchStart) / pageWidth
+                existing.boundingBox.x -
+                  getPreciseXHelper(line, match.matchStart) / pageWidth
               ) < xOverlapThreshold &&
               Math.abs(
                 existing.boundingBox.y -
@@ -371,7 +423,9 @@ async function extractFieldsFromText(
           });
 
           if (isDuplicate) {
-            console.log(`[HyprSign] Skipping duplicate pattern match: "${label}"`);
+            console.log(
+              `[HyprSign] Skipping duplicate pattern match: "${label}"`
+            );
             continue;
           }
 
@@ -382,7 +436,9 @@ async function extractFieldsFromText(
             !match.fullMatch.includes("-");
           const fieldX = getPreciseXHelper(
             line,
-            isColonLabelOnly ? match.matchStart + match.fullMatch.length : match.matchStart
+            isColonLabelOnly
+              ? match.matchStart + match.fullMatch.length
+              : match.matchStart
           );
 
           // Calculate font-size relative dimensions
@@ -399,7 +455,8 @@ async function extractFieldsFromText(
           // Ensure checkbox is square in points (requires page aspect ratio)
           const widthInPoints = isCheckbox
             ? fontSizePoints * 1.2
-            : calculateFieldWidth(match.patternType, match.fullMatch) * pageWidth;
+            : calculateFieldWidth(match.patternType, match.fullMatch) *
+              pageWidth;
           const fieldWidth = widthInPoints / pageWidth;
 
           // Center the field vertically on the text line
@@ -440,7 +497,10 @@ async function extractFieldsFromText(
 /**
  * Infer field type from pattern type and label.
  */
-function inferFieldTypeFromPattern(patternType: string, label: string): DetectedField["type"] {
+function inferFieldTypeFromPattern(
+  patternType: string,
+  label: string
+): DetectedField["type"] {
   // Pattern-specific type inference
   switch (patternType) {
     case "signatureX":
@@ -482,9 +542,15 @@ function calculateFieldWidth(patternType: string, matchText: string): number {
 
   // Calculate based on underscore/dash length
   const fillChars = (matchText.match(/[_\-.]/g) || []).length;
-  if (fillChars > 20) { return 0.4; }
-  if (fillChars > 10) { return 0.3; }
-  if (fillChars > 5) { return 0.2; }
+  if (fillChars > 20) {
+    return 0.4;
+  }
+  if (fillChars > 10) {
+    return 0.3;
+  }
+  if (fillChars > 5) {
+    return 0.2;
+  }
 
   return 0.25;
 }
@@ -501,7 +567,9 @@ export async function analyzeWithGeminiVision(
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.warn("[HyprSign] No GEMINI_API_KEY configured, using fallback field detection");
+    console.warn(
+      "[HyprSign] No GEMINI_API_KEY configured, using fallback field detection"
+    );
     return [];
   }
 
@@ -562,7 +630,9 @@ Return ONLY valid JSON array, no other text:
 
     return detectedFields.map((f, index) => {
       const matchedKey = findProfileMatch(f.label);
-      const autoFilledValue = matchedKey ? (userProfile as any)[matchedKey] : null;
+      const autoFilledValue = matchedKey
+        ? (userProfile as any)[matchedKey]
+        : null;
 
       return {
         id: `gemini-field-${index}`,

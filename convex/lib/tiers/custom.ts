@@ -1,4 +1,4 @@
-import type { TierConfig } from './types';
+import type { TierConfig } from "./types";
 
 /**
  * Custom Tier Configuration
@@ -7,19 +7,19 @@ import type { TierConfig } from './types';
  * Never auto-assigned by webhooks.
  */
 export const CUSTOM_TIER: TierConfig = {
-	id: 'custom',
-	name: 'Custom',
-	limits: {
-		aiWriterPerMonth: -1, // Unlimited
-		inlineAiPerDay: -1, // Unlimited
-		inlineAiPerMonth: -1, // Unlimited
-		envelopesPerMonth: -1 // Unlimited
-	},
-	features: {
-		realtimeCollaboration: true,
-		prioritySupport: true,
-		customBranding: true,
-		apiAccess: true
-	},
-	isPaid: true
+  id: "custom",
+  name: "Custom",
+  limits: {
+    aiWriterPerMonth: -1, // Unlimited
+    inlineAiPerDay: -1, // Unlimited
+    inlineAiPerMonth: -1, // Unlimited
+    envelopesPerMonth: -1, // Unlimited
+  },
+  features: {
+    realtimeCollaboration: true,
+    prioritySupport: true,
+    customBranding: true,
+    apiAccess: true,
+  },
+  isPaid: true,
 };

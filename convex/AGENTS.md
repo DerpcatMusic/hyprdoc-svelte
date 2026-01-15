@@ -1,40 +1,113 @@
-# HyprDoc Convex Guide
+# HyprDoc Convex Backend Architecture
 
-Focus on maintainability, security, and high performance in the serverless backend.
+> **Single Source of Truth**: All functions import from `lib/core.ts`. Period.
 
-## 1. Best Practices & Standards
-- **Return Validators**: ALWAYS use `returns: v...` for public queries/mutations. Use shared validators from `lib/validators.ts`.
-- **Internal Functions**: Use `internalMutation` and `internalQuery` for system-only tasks (e.g., audit logging, usage tracking).
-- **Indexing**: 
-  - Frequently queried fields MUST be indexed (e.g., `by_owner`, `by_email`).
-  - Use compound indexes for complex filters (e.g., `by_owner_and_status`).
-- **Actions**: Use for side effects (AI, Email, Polar API). NEVER perform side effects in mutations.
+## The Pattern
 
-## 2. Unified Document Model
-HyprDoc uses a shared schema between Next.js and SvelteKit.
-- **Documents Table**: Holds both Templates and Envelopes (`kind: 'template' | 'envelope'`).
-- **Source Link**: Envelopes link back to parents via `sourceTemplateId`.
-- **Blocks**: Rich content is stored as an array of Zod-validated blocks.
+```typescript
+// THE ONLY IMPORTS ANY FILE NEEDS:
+import { protectedMutation, protectedQuery, query, mutation } from "@/convex/lib/core";
+```
 
-## 3. Hybrid Auth System
-- **Primary (WorkOS)**: Standard SSO/Social login for account holders.
-- **Guest Access**: Non-account holders use Guest Access Tokens.
-- **OTP Verification**: `requestGuestOtp` + `verifyGuestOtp` provides temporary `guestAccessToken` for secure collaboration without registration.
+## Core Wrappers
 
-## 4. Multi-Channel Sharing Logic
-- **Public Slug**: `sharedSigningSlug` enables O(1) public access for "One Link" signing.
-- **Temp Invites**: `tempInviteLinks` for restricted, multi-use links with expiration.
-- **Direct Collaboration**: `documentMembers` for named users with specific roles (`viewer`, `editor`, `admin`).
+| Wrapper | Auth Required | RLS | Triggers | Use Case |
+|---------|---------------|-----|----------|----------|
+| `query` | ❌ | ✅ | ❌ | Public reads, optional user |
+| `mutation` | ❌ | ✅ | ✅ | Public writes, `users.store` |
+| `protectedQuery` | ✅ | ✅ | ❌ | User-specific reads |
+| `protectedMutation` | ✅ | ✅ | ✅ | **Most common** - user writes |
+| `internalQuery` | ❌ | ❌ | ❌ | Scheduled jobs, internal reads |
+| `internalMutation` | ❌ | ❌ | ✅ | Webhooks, system writes |
 
-## 5. Scheduler & Crons
-- **Async Side Effects**: Use `ctx.scheduler.runAfter(0, ...)` for non-blocking tasks like audit logging and email notifications.
-- **Crons (`crons.ts`)**:
-  - `cleanup expired otps`: Hourly maintenance.
-  - `send signing reminders`: Daily automated follow-ups.
-  - `reset daily usage`: Midnight UTC counter resets.
-  - `expire subscriptions`: Daily Polar.sh sync.
+## Features Built-In
 
-## 6. Access Control
-Use `lib/auth.ts` helpers:
-- `requireAuth(ctx)`: Ensures WorkOS identity.
-- `requireDocumentAccess(ctx, id, role, guestToken?)`: Unified permission check for owners, members, and guests.
+### 1. Authentication (WorkOS JWT)
+- `protectedQuery` and `protectedMutation` throw `AuthError` if no user
+- `query` and `mutation` provide `ctx.user` (nullable)
+
+### 2. Row-Level Security (RLS)
+- Every table query is wrapped with access rules
+- Users can only read/write their own data
+- Public documents are readable by anyone
+
+### 3. Triggers (Auto-Audit)
+- Every mutation on `documents` and `users` tables is logged
+- Audit logs stored in `auditLogs` table automatically
+
+## Usage Examples
+
+### Protected Query (User-specific read)
+```typescript
+import { protectedQuery } from "@/convex/lib/core";
+import { v } from "convex/values";
+
+export const list = protectedQuery({
+  args: { status: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    // RLS already filters to user's docs
+    const docs = await ctx.db.query("documents").collect();
+    return docs;
+  },
+});
+```
+
+### Protected Mutation (User-specific write)
+```typescript
+import { protectedMutation, v } from "@/convex/lib/core";
+
+export const create = protectedMutation({
+  args: { title: v.string() },
+  handler: async (ctx, args) => {
+    // Triggers will auto-log this insert
+    return ctx.db.insert("documents", {
+      title: args.title,
+      ownerId: ctx.user._id,
+      // ...
+    });
+  },
+});
+```
+
+### Public Query (Optional auth)
+```typescript
+import { query, v } from "@/convex/lib/core";
+
+export const get = query({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args) => {
+    // ctx.user may be null
+    // RLS allows public docs or user's own docs
+    return ctx.db.get(args.documentId);
+  },
+});
+```
+
+## File Structure
+
+```
+convex/
+├── lib/
+│   ├── core.ts      # THE POWERHOUSE - all wrappers
+│   └── triggers.ts  # Trigger registrations only
+├── documents/
+│   ├── mutations/
+│   │   ├── create.ts
+│   │   ├── delete.ts
+│   │   └── update.ts
+│   └── queries/
+│       ├── get.ts
+│       └── list.ts
+├── users/
+│   ├── mutations.ts
+│   └── queries.ts
+└── ...
+```
+
+## Rules
+
+1. **NEVER** import from `_generated/server` directly - use `lib/core.ts`
+2. **NEVER** call `ctx.auth.getUserIdentity()` - use `ctx.user`
+3. **NEVER** manually insert audit logs - triggers handle it
+4. **ALWAYS** use `protectedMutation` for user writes
+5. **ALWAYS** use `protectedQuery` for user reads

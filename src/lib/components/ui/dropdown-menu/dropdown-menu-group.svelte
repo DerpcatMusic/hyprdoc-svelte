@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { DropdownMenu as BitsDropdownMenu } from "bits-ui";
+  import { DropdownMenu as BitsDropdownMenu } from "bits-ui";
 
-	const { children, ...restProps } = $props();
+  const { children, ...restProps } = $props();
 </script>
 
 <BitsDropdownMenu.Group {...restProps}>
-	{@render children?.()}
+  {@render children?.()}
 </BitsDropdownMenu.Group>

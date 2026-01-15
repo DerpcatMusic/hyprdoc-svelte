@@ -1,2 +1,2 @@
 // Auth module exports
-export type { AuthState, Session, User } from './types';
+export type { AuthState, Session, User } from "./types";

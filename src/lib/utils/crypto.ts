@@ -15,7 +15,9 @@ export const generateHash = async (data: string): Promise<string> => {
 };
 
 export const formatShortHash = (hash: string) => {
-  if (!hash) { return ""; }
+  if (!hash) {
+    return "";
+  }
   return `${hash.slice(0, 4)}...${hash.slice(Math.max(0, hash.length - 4))}`;
 };
 

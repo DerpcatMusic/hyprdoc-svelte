@@ -11,7 +11,7 @@
  * - Signature markers (X____, /s/)
  */
 
-import type { DetectedField } from "$lib/components/hyprsign/types";
+import type { DetectedField } from "./types";
 
 /**
  * Pattern definitions for field recognition.
@@ -93,34 +93,59 @@ export const FIELD_PATTERNS = {
   /**
    * Date placeholder patterns: __/__/____, MM/DD/YYYY
    */
-  dateSlash: /(_+\s*\/\s*_+\s*\/\s*_+)|([Mm]{2}\s*\/\s*[Dd]{2}\s*\/\s*[Yy]{2,4})/g,
+  dateSlash:
+    /(_+\s*\/\s*_+\s*\/\s*_+)|([Mm]{2}\s*\/\s*[Dd]{2}\s*\/\s*[Yy]{2,4})/g,
 };
 
 /**
  * Keywords used to infer field types from labels.
  * Order matters: more specific matches should come first.
  */
-const TYPE_MAPPINGS: Array<{ keywords: string[]; type: DetectedField["type"] }> = [
+const TYPE_MAPPINGS: Array<{
+  keywords: string[];
+  type: DetectedField["type"];
+}> = [
   // Signature patterns (most specific first)
-  { keywords: ["signature", "sign here", "signed by", "authorized signature"], type: "signature" },
+  {
+    keywords: ["signature", "sign here", "signed by", "authorized signature"],
+    type: "signature",
+  },
   { keywords: ["initial", "initials"], type: "initials" },
 
   // Date patterns
-  { keywords: ["date of birth", "dob", "birth date", "birthdate"], type: "date" },
+  {
+    keywords: ["date of birth", "dob", "birth date", "birthdate"],
+    type: "date",
+  },
   { keywords: ["date signed", "effective date", "as of date"], type: "date" },
   { keywords: ["date"], type: "date" },
 
   // Checkbox/selection patterns
   {
-    keywords: ["single", "ep", "album", "agree", "accept", "confirm", "yes", "no"],
+    keywords: [
+      "single",
+      "ep",
+      "album",
+      "agree",
+      "accept",
+      "confirm",
+      "yes",
+      "no",
+    ],
     type: "checkbox",
   },
 
   // Standard text fields (fallback)
   { keywords: ["email", "e-mail"], type: "text" },
   { keywords: ["phone", "tel", "mobile", "cell", "fax"], type: "text" },
-  { keywords: ["address", "street", "city", "state", "zip", "postal"], type: "text" },
-  { keywords: ["name", "title", "company", "organization", "position"], type: "text" },
+  {
+    keywords: ["address", "street", "city", "state", "zip", "postal"],
+    type: "text",
+  },
+  {
+    keywords: ["name", "title", "company", "organization", "position"],
+    type: "text",
+  },
 ];
 
 /**
@@ -275,7 +300,8 @@ export function scanLineForPatterns(lineText: string): PatternMatch[] {
     let match: RegExpExecArray | null = pattern.exec(lineText);
 
     while (match !== null) {
-      const label = match[1]?.trim() || extractLabelFromContext(lineText, match.index);
+      const label =
+        match[1]?.trim() || extractLabelFromContext(lineText, match.index);
 
       matches.push({
         patternType: patternType as keyof typeof FIELD_PATTERNS,
@@ -308,7 +334,9 @@ function extractLabelFromContext(lineText: string, matchIndex: number): string {
 
   // Check for checkbox context (label follows the checkbox)
   const followingText = lineText.slice(matchIndex).trim();
-  const labelAfter = followingText.match(/^[□☐[\]()]\s*([A-Za-z][A-Za-z0-9\s()+-]*)/);
+  const labelAfter = followingText.match(
+    /^[□☐[\]()]\s*([A-Za-z][A-Za-z0-9\s()+-]*)/
+  );
   if (labelAfter) {
     return labelAfter[1].trim();
   }

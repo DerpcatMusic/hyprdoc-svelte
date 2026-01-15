@@ -1,13 +1,9 @@
 <script lang="ts">
-	import { Dialog as BitsDialog } from "bits-ui";
+  import { Dialog as BitsDialog } from "bits-ui";
 
-	let {
-		open = $bindable(false),
-		children,
-		...restProps
-	} = $props();
+  let { open = $bindable(false), children, ...restProps } = $props();
 </script>
 
 <BitsDialog.Root bind:open {...restProps}>
-	{@render children?.()}
+  {@render children?.()}
 </BitsDialog.Root>

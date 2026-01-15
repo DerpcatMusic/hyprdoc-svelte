@@ -21,11 +21,17 @@
  * ```
  */
 export function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) { return error.message; }
-  if (typeof error === "string") { return error; }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
   if (error && typeof error === "object" && "message" in error) {
-    const msg = (error as { message: unknown }).message;
-    if (typeof msg === "string") { return msg; }
+    const errorObj = error as { message: unknown };
+    if (typeof errorObj.message === "string") {
+      return errorObj.message;
+    }
   }
   return "An unknown error occurred";
 }
@@ -33,13 +39,17 @@ export function getErrorMessage(error: unknown): string {
 /**
  * Type guard to check if error has a message property.
  */
-export function isErrorWithMessage(error: unknown): error is { message: string } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message: unknown }).message === "string"
-  );
+export function isErrorWithMessage(
+  error: unknown
+): error is { message: string } {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+  if (!("message" in error)) {
+    return false;
+  }
+  const errorObj = error as { message: unknown };
+  return typeof errorObj.message === "string";
 }
 
 /**
@@ -55,7 +65,9 @@ export function isError(error: unknown): error is Error {
 export function getErrorCode(error: unknown): string | undefined {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code: unknown }).code;
-    if (typeof code === "string") { return code; }
+    if (typeof code === "string") {
+      return code;
+    }
   }
   return undefined;
 }
@@ -63,7 +75,10 @@ export function getErrorCode(error: unknown): string | undefined {
 /**
  * Create a standardized error response object.
  */
-export function toErrorResponse(error: unknown): { message: string; code?: string } {
+export function toErrorResponse(error: unknown): {
+  message: string;
+  code?: string;
+} {
   return {
     message: getErrorMessage(error),
     code: getErrorCode(error),

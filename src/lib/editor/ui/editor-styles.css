@@ -1,0 +1,117 @@
+/* Tiptap Table Styles - Forced Visibility */
+.ProseMirror table {
+  border-collapse: collapse !important;
+  margin: 2rem 0 !important;
+  overflow: hidden !important;
+  table-layout: fixed !important;
+  width: 100% !important;
+  border: 2px solid var(--border) !important;
+  background-color: white !important;
+}
+
+.ProseMirror td,
+.ProseMirror th {
+  border: 1px solid var(--border) !important;
+  box-sizing: border-box !important;
+  min-width: 1em !important;
+  padding: 12px !important;
+  position: relative !important;
+  vertical-align: top !important;
+  color: black !important;
+}
+
+.ProseMirror th {
+  background-color: var(--muted) !important;
+  font-weight: bold !important;
+  text-align: left !important;
+}
+
+.ProseMirror .selectedCell:after {
+  background: rgba(200, 200, 255, 0.4) !important;
+  content: "" !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  z-index: 2 !important;
+}
+
+.ProseMirror .column-resize-handle {
+  background-color: var(--primary) !important;
+  bottom: -2px !important;
+  position: absolute !important;
+  right: -2px !important;
+  pointer-events: none !important;
+  top: 0 !important;
+  width: 4px !important;
+}
+
+/* Tiptap Task List Styles */
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 1rem 0 !important;
+}
+
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 1rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  cursor: pointer !important;
+  width: 1.2rem !important;
+  height: 1.2rem !important;
+  margin-top: 0.2rem !important;
+}
+
+/* Details/Collapsible */
+.ProseMirror .details {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.5rem !important;
+  margin: 1.5rem 0 !important;
+  padding: 1rem !important;
+  border: 1.5px solid var(--border) !important;
+  border-radius: 0.75rem !important;
+  background: var(--card) !important;
+}
+
+.ProseMirror .details summary {
+  cursor: pointer !important;
+  font-weight: bold !important;
+  outline: none !important;
+  color: var(--primary) !important;
+}
+
+/* Placeholder fix */
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: var(--muted-foreground) !important;
+  content: attr(data-placeholder) !important;
+  position: absolute !important;
+  pointer-events: none !important;
+  opacity: 0.5 !important;
+  white-space: nowrap !important;
+}
+
+/* Force line-height inheritance from container */
+#document-canvas .ProseMirror {
+  line-height: var(--hd-line-height) !important;
+  font-size: var(--hd-font-size) !important;
+  font-family: var(--hd-font-family) !important;
+}
+
+.ProseMirror p, 
+.ProseMirror ul, 
+.ProseMirror ol, 
+.ProseMirror h1, 
+.ProseMirror h2, 
+.ProseMirror h3, 
+.ProseMirror li, 
+.ProseMirror blockquote {
+  line-height: inherit !important;
+}

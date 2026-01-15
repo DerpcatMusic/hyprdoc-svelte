@@ -1,10 +1,20 @@
+import { verifySession } from '$lib/server/workos';
 import type { Handle } from '@sveltejs/kit';
-import { getSession } from '$lib/auth/session.server';
 
 export const handle: Handle = async ({ event, resolve }) => {
-	const session = await getSession(event.cookies);
-	event.locals.session = session;
-	event.locals.user = session?.user ?? null;
+	const result = await verifySession(event.cookies);
+
+	if (result) {
+		event.locals.user = result.user;
+		event.locals.auth = {
+			user: result.user,
+			sessionId: result.sealedSession,
+			accessToken: result.accessToken
+		};
+	} else {
+		event.locals.user = null;
+		event.locals.auth = null;
+	}
 
 	return resolve(event);
 };

@@ -1,20 +1,16 @@
 <script lang="ts">
-	import { Tabs as BitsTabs } from "bits-ui";
-	import { cn } from "$lib/utils";
+  import { Tabs as BitsTabs } from "bits-ui";
+  import { cn } from "$lib/utils";
 
-	const {
-		class: className = undefined,
-		children,
-		...restProps
-	} = $props();
+  const { class: className = undefined, children, ...restProps } = $props();
 </script>
 
 <BitsTabs.List
-	class={cn(
+  class={cn(
 		"inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground",
 		className
 	)}
-	{...restProps}
+  {...restProps}
 >
-	{@render children?.()}
+  {@render children?.()}
 </BitsTabs.List>

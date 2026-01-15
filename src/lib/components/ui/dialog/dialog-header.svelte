@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { cn } from "$lib/utils";
-	import type { HTMLAttributes } from "svelte/elements";
+  import type { HTMLAttributes } from "svelte/elements";
+  import { cn } from "$lib/utils";
 
-	const {
-		class: className,
-		children,
-		...restProps
-	}: HTMLAttributes<HTMLDivElement> = $props();
+  const {
+    class: className,
+    children,
+    ...restProps
+  }: HTMLAttributes<HTMLDivElement> = $props();
 </script>
 
 <div
-	class={cn(
+  class={cn(
 		"flex flex-col space-y-1.5 text-center sm:text-left",
 		className
 	)}
-	{...restProps}
+  {...restProps}
 >
-	{@render children?.()}
+  {@render children?.()}
 </div>

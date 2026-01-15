@@ -20,9 +20,9 @@ class AuditService {
       level,
       action,
       metadata,
-      actorType: 'system',
-      resourceType: 'app',
-      resourceId: 'local'
+      actorType: "system",
+      resourceType: "app",
+      resourceId: "local",
     };
   }
 

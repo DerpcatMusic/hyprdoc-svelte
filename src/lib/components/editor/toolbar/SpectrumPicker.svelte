@@ -1,179 +1,185 @@
 <script lang="ts">
-	import { colord, extend } from 'colord';
-	import { untrack, onMount } from 'svelte';
-	
-	interface Props {
-		value: string; // Hex
-		onChange: (color: string) => void;
-		autoStartDrag?: boolean;
-	}
+  import { colord, extend } from "colord";
+  import { onMount, untrack } from "svelte";
 
-	let { value, onChange, autoStartDrag = false }: Props = $props();
+  interface Props {
+    value: string; // Hex
+    onChange: (color: string) => void;
+    autoStartDrag?: boolean;
+  }
 
-	// Internal state in HSV for easier UI mapping
-	// H: 0-360, S: 0-100, V: 0-100
-	let hue = $state(0);
-	let saturation = $state(0);
-	let brightness = $state(100);
-	let isDragging = $state(false);
+  let { value, onChange, autoStartDrag = false }: Props = $props();
 
-	// Sync internal state when prop changes externally (and not dragging)
-	$effect(() => {
-		if (!isDragging && value) {
-			untrack(() => {
-				const c = colord(value || '#000000');
-				const hsv = c.toHsv();
-				hue = hsv.h;
-				saturation = hsv.s;
-				brightness = hsv.v;
-			});
-		}
-	});
+  // Internal state in HSV for easier UI mapping
+  // H: 0-360, S: 0-100, V: 0-100
+  let hue = $state(0);
+  let saturation = $state(0);
+  let brightness = $state(100);
+  let isDragging = $state(false);
 
-	onMount(() => {
-		if (autoStartDrag) {
-			startSbDrag(null);
-		}
-	});
+  // Sync internal state when prop changes externally (and not dragging)
+  $effect(() => {
+    if (!isDragging && value) {
+      untrack(() => {
+        const c = colord(value || "#000000");
+        const hsv = c.toHsv();
+        hue = hsv.h;
+        saturation = hsv.s;
+        brightness = hsv.v;
+      });
+    }
+  });
 
-	// Derived colors for UI
-	const hueColor = $derived(`hsl(${hue}, 100%, 50%)`);
-	const currentColor = $derived(colord({ h: hue, s: saturation, v: brightness }).toHex());
+  onMount(() => {
+    if (autoStartDrag) {
+      startSbDrag(null);
+    }
+  });
 
-	// ━━━ HANDLERS ━━━
+  // Derived colors for UI
+  const hueColor = $derived(`hsl(${hue}, 100%, 50%)`);
+  const currentColor = $derived(
+    colord({ h: hue, s: saturation, v: brightness }).toHex()
+  );
 
-	function updateColor() {
-		const hex = colord({ h: hue, s: saturation, v: brightness }).toHex();
-		onChange(hex);
-	}
+  // ━━━ HANDLERS ━━━
 
-	function getClientCoordinates(e: MouseEvent | TouchEvent) {
-		if ('touches' in e) {
-			return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-		}
-		return { x: (e as MouseEvent).clientX, y: (e as MouseEvent).clientY };
-	}
+  function updateColor() {
+    const hex = colord({ h: hue, s: saturation, v: brightness }).toHex();
+    onChange(hex);
+  }
 
-	// Saturation/Brightness Box Handlers
-	function handleSbMouseDown(e: MouseEvent | TouchEvent) {
-		startSbDrag(e);
-	}
+  function getClientCoordinates(e: MouseEvent | TouchEvent) {
+    if ("touches" in e) {
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    return { x: (e as MouseEvent).clientX, y: (e as MouseEvent).clientY };
+  }
 
-	function startSbDrag(e: MouseEvent | TouchEvent | null) {
-		isDragging = true;
-		if (e) handleSbMove(e);
-		window.addEventListener('mousemove', handleSbMove);
-		window.addEventListener('touchmove', handleSbMove);
-		window.addEventListener('mouseup', stopSbDrag);
-		window.addEventListener('touchend', stopSbDrag);
-	}
+  // Saturation/Brightness Box Handlers
+  function handleSbMouseDown(e: MouseEvent | TouchEvent) {
+    startSbDrag(e);
+  }
 
-	function handleSbMove(e: MouseEvent | TouchEvent) {
-		const target = document.querySelector('.sb-box'); // Use a more stable selector strategy if needed
-		if (!target) return;
-		const box = target.getBoundingClientRect();
-		
-		const coords = getClientCoordinates(e);
-		const x = Math.max(0, Math.min(1, (coords.x - box.left) / box.width));
-		const y = Math.max(0, Math.min(1, (coords.y - box.top) / box.height));
+  function startSbDrag(e: MouseEvent | TouchEvent | null) {
+    isDragging = true;
+    if (e) handleSbMove(e);
+    window.addEventListener("mousemove", handleSbMove);
+    window.addEventListener("touchmove", handleSbMove);
+    window.addEventListener("mouseup", stopSbDrag);
+    window.addEventListener("touchend", stopSbDrag);
+  }
 
-		saturation = Math.round(x * 100);
-		brightness = Math.round((1 - y) * 100);
-		updateColor();
-	}
+  function handleSbMove(e: MouseEvent | TouchEvent) {
+    const target = document.querySelector(".sb-box"); // Use a more stable selector strategy if needed
+    if (!target) return;
+    const box = target.getBoundingClientRect();
 
-	function stopSbDrag() {
-		isDragging = false;
-		window.removeEventListener('mousemove', handleSbMove);
-		window.removeEventListener('touchmove', handleSbMove);
-		window.removeEventListener('mouseup', stopSbDrag);
-		window.removeEventListener('touchend', stopSbDrag);
-	}
+    const coords = getClientCoordinates(e);
+    const x = Math.max(0, Math.min(1, (coords.x - box.left) / box.width));
+    const y = Math.max(0, Math.min(1, (coords.y - box.top) / box.height));
 
-	// Hue Slider Handlers
-	function handleHueMouseDown(e: MouseEvent | TouchEvent) {
-		startHueDrag(e);
-	}
+    saturation = Math.round(x * 100);
+    brightness = Math.round((1 - y) * 100);
+    updateColor();
+  }
 
-	function startHueDrag(e: MouseEvent | TouchEvent) {
-		isDragging = true;
-		handleHueMove(e);
-		window.addEventListener('mousemove', handleHueMove);
-		window.addEventListener('touchmove', handleHueMove);
-		window.addEventListener('mouseup', stopHueDrag);
-		window.addEventListener('touchend', stopHueDrag);
-	}
+  function stopSbDrag() {
+    isDragging = false;
+    window.removeEventListener("mousemove", handleSbMove);
+    window.removeEventListener("touchmove", handleSbMove);
+    window.removeEventListener("mouseup", stopSbDrag);
+    window.removeEventListener("touchend", stopSbDrag);
+  }
 
-	function handleHueMove(e: MouseEvent | TouchEvent) {
-		const target = document.querySelector('.hue-track');
-		if (!target) return;
-		const track = target.getBoundingClientRect();
+  // Hue Slider Handlers
+  function handleHueMouseDown(e: MouseEvent | TouchEvent) {
+    startHueDrag(e);
+  }
 
-		const coords = getClientCoordinates(e);
-		const x = Math.max(0, Math.min(1, (coords.x - track.left) / track.width));
-		hue = Math.round(x * 360);
-		updateColor();
-	}
+  function startHueDrag(e: MouseEvent | TouchEvent) {
+    isDragging = true;
+    handleHueMove(e);
+    window.addEventListener("mousemove", handleHueMove);
+    window.addEventListener("touchmove", handleHueMove);
+    window.addEventListener("mouseup", stopHueDrag);
+    window.addEventListener("touchend", stopHueDrag);
+  }
 
-	function stopHueDrag() {
-		isDragging = false;
-		window.removeEventListener('mousemove', handleHueMove);
-		window.removeEventListener('touchmove', handleHueMove);
-		window.removeEventListener('mouseup', stopHueDrag);
-		window.removeEventListener('touchend', stopHueDrag);
-	}
+  function handleHueMove(e: MouseEvent | TouchEvent) {
+    const target = document.querySelector(".hue-track");
+    if (!target) return;
+    const track = target.getBoundingClientRect();
+
+    const coords = getClientCoordinates(e);
+    const x = Math.max(0, Math.min(1, (coords.x - track.left) / track.width));
+    hue = Math.round(x * 360);
+    updateColor();
+  }
+
+  function stopHueDrag() {
+    isDragging = false;
+    window.removeEventListener("mousemove", handleHueMove);
+    window.removeEventListener("touchmove", handleHueMove);
+    window.removeEventListener("mouseup", stopHueDrag);
+    window.removeEventListener("touchend", stopHueDrag);
+  }
 </script>
 
 <div class="flex flex-col gap-3 w-56 p-1 select-none">
-	<!-- Saturation/Brightness Box -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div 
-		class="sb-box relative w-full h-32 rounded-lg cursor-crosshair overflow-hidden border border-border/40 bg-white"
-		style:background-color={hueColor}
-		onmousedown={handleSbMouseDown}
-	>
-		<!-- White gradient (Left to Right) -->
-		<div class="absolute inset-0 bg-gradient-to-r from-white to-transparent mix-blend-multiply"></div>
-		<!-- Black gradient (Top to Bottom) -->
-		<div class="absolute inset-0 bg-gradient-to-b from-transparent to-black mix-blend-multiply"></div>
+  <!-- Saturation/Brightness Box -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="sb-box relative w-full h-32 rounded-lg cursor-crosshair overflow-hidden border border-border/40 bg-white"
+    style:background-color={hueColor}
+    onmousedown={handleSbMouseDown}
+  >
+    <!-- White gradient (Left to Right) -->
+    <div
+      class="absolute inset-0 bg-gradient-to-r from-white to-transparent mix-blend-multiply"
+    ></div>
+    <!-- Black gradient (Top to Bottom) -->
+    <div
+      class="absolute inset-0 bg-gradient-to-b from-transparent to-black mix-blend-multiply"
+    ></div>
 
-		<!-- Handle -->
-		<div 
-			class="absolute w-3 h-3 rounded-full border-2 border-white shadow-sm -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-			style:left="{saturation}%"
-			style:top="{100 - brightness}%"
-			style:background-color={currentColor}
-		></div>
-	</div>
+    <!-- Handle -->
+    <div
+      class="absolute w-3 h-3 rounded-full border-2 border-white shadow-sm -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+      style:left="{saturation}%"
+      style:top="{100 - brightness}%"
+      style:background-color={currentColor}
+    ></div>
+  </div>
 
-	<!-- Hue Slider -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div 
-		class="hue-track relative w-full h-3 rounded-full cursor-pointer border border-border/20"
-		style:background="linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)"
-		onmousedown={handleHueMouseDown}
-	>
-		<!-- Handle -->
-		<div 
-			class="absolute w-4 h-4 rounded-full border-2 border-white shadow-sm -translate-x-1/2 top-1/2 -translate-y-1/2 bg-white pointer-events-none"
-			style:left="{(hue / 360) * 100}%"
-		></div>
-	</div>
+  <!-- Hue Slider -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="hue-track relative w-full h-3 rounded-full cursor-pointer border border-border/20"
+    style:background="linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)"
+    onmousedown={handleHueMouseDown}
+  >
+    <!-- Handle -->
+    <div
+      class="absolute w-4 h-4 rounded-full border-2 border-white shadow-sm -translate-x-1/2 top-1/2 -translate-y-1/2 bg-white pointer-events-none"
+      style:left="{(hue / 360) * 100}%"
+    ></div>
+  </div>
 
-	<!-- Output & Preview -->
-	<div class="flex items-center gap-2">
-		<div 
-			class="w-8 h-8 rounded-md border border-border shadow-sm"
-			style:background-color={currentColor}
-		></div>
-		<input 
-			type="text" 
-			value={currentColor.toUpperCase()} 
-			class="flex-1 h-8 rounded-md border border-input bg-transparent px-3 text-xs font-mono uppercase focus:outline-none focus:ring-1 focus:ring-ring"
-			onchange={(e: any) => {
+  <!-- Output & Preview -->
+  <div class="flex items-center gap-2">
+    <div
+      class="w-8 h-8 rounded-md border border-border shadow-sm"
+      style:background-color={currentColor}
+    ></div>
+    <input
+      type="text"
+      value={currentColor.toUpperCase()}
+      class="flex-1 h-8 rounded-md border border-input bg-transparent px-3 text-xs font-mono uppercase focus:outline-none focus:ring-1 focus:ring-ring"
+      onchange={(e: any) => {
 				const val = (e.currentTarget as HTMLInputElement).value;
 				if (colord(val).isValid()) onChange(val);
 			}}
-		/>
-	</div>
+    >
+  </div>
 </div>

@@ -2,7 +2,7 @@ import { dotsTexture } from "./generators/dots";
 import { gridTexture } from "./generators/grid";
 import { linesTexture } from "./generators/lines";
 import { noiseTexture } from "./generators/noise";
-import type { TextureDefinition, TextureParams } from "./types";
+import type { TextureDefinition } from "./types";
 
 const TEXTURES: Record<string, TextureDefinition> = {
   [dotsTexture.id]: dotsTexture,
@@ -12,7 +12,9 @@ const TEXTURES: Record<string, TextureDefinition> = {
 };
 
 // Helper to get texture
-export const getTextureGenerator = (id: string): TextureDefinition | undefined => {
+export const getTextureGenerator = (
+  id: string
+): TextureDefinition | undefined => {
   return TEXTURES[id];
 };
 
@@ -24,7 +26,12 @@ export const getTextureOptions = () => {
 // Default fallback
 export const generateTextureCSS = (
   id: string,
-  params: { color: string; opacity: number; scale: number; monochromatic?: boolean }
+  params: {
+    color: string;
+    opacity: number;
+    scale: number;
+    monochromatic?: boolean;
+  }
 ) => {
   const texture = TEXTURES[id];
   if (!texture) return "none";

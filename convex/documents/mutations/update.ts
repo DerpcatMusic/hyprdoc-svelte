@@ -1,69 +1,76 @@
-import { v, type Infer } from 'convex/values';
-import { mutation } from '@/convex/_generated/server';
-import { requireDocumentAccess } from '@/convex/lib/auth';
-import { DEFAULT_DOCUMENT_SETTINGS } from '@/convex/lib/constants';
-import { hashContent } from '@/convex/lib/crypto';
-import { documentSealed } from '@/convex/lib/errors';
-import { blocksArrayValidator, documentSettingsValidator, partialDocumentSettingsValidator } from '@/convex/lib/schemas';
-import { isDocumentLocked } from '@/convex/lib/services/sealing_service';
-import { requestContextValidator } from '@/convex/lib/validators';
+/**
+ * documents/mutations/update.ts - Document Update
+ * ════════════════════════════════════════════════════════════════════════════
+ * Document update mutations with settings validation and version snapshot.
+ */
+import { v } from "convex/values";
+import type { Infer } from "convex/values";
+import { protectedMutation } from "@/convex/lib/core";
+import {
+	DEFAULT_DOCUMENT_SETTINGS,
+	documentSettingsValidator,
+	partialDocumentSettingsValidator,
+} from "@/convex/domains/settings";
+import { hashContent } from "@/convex/lib/crypto";
+import { documentSealed } from "@/convex/lib/errors";
+import { isDocumentLocked } from "@/convex/lib/services/sealing_service";
 
 const MAX_TITLE_LENGTH = 255;
 const MAX_MARGIN = 5000;
 const MAX_PAGE_DIMENSION = 10_000;
 
-function validateSettings(settings: Infer<typeof partialDocumentSettingsValidator>) {
-	if (!settings) { return; }
+function validateSettings(
+	settings: Infer<typeof partialDocumentSettingsValidator>,
+): void {
+	if (!settings) return;
 
-	// Validates margins
 	const checks = [
-		{ key: 'marginVertical', label: 'Vertical margin' },
-		{ key: 'marginHorizontal', label: 'Horizontal margin' },
-		{ key: 'marginLeft', label: 'Left margin' },
-		{ key: 'marginRight', label: 'Right margin' }
+		{ key: "marginVertical", label: "Vertical margin" },
+		{ key: "marginHorizontal", label: "Horizontal margin" },
+		{ key: "marginLeft", label: "Left margin" },
+		{ key: "marginRight", label: "Right margin" },
 	];
 
 	for (const { key, label } of checks) {
-		const val = (settings as any)[key];
-		if (val !== undefined && (val < 0 || val > MAX_MARGIN)) {
-				throw new Error(`${label} must be between 0 and ${MAX_MARGIN}`);
-			}
+		const val = (settings as Record<string, unknown>)[key];
+		if (typeof val === "number" && (val < 0 || val > MAX_MARGIN)) {
+			throw new Error(`${label} must be between 0 and ${MAX_MARGIN}`);
+		}
 	}
 
-	// Validate Page Dimensions
 	if (
 		settings.pageWidth !== undefined &&
 		(settings.pageWidth < 100 || settings.pageWidth > MAX_PAGE_DIMENSION)
 	) {
-		throw new Error(`Page width must be between 100 and ${MAX_PAGE_DIMENSION}px`);
+		throw new Error(
+			`Page width must be between 100 and ${MAX_PAGE_DIMENSION}px`,
+		);
 	}
 	if (
 		settings.pageHeight !== undefined &&
 		(settings.pageHeight < 100 || settings.pageHeight > MAX_PAGE_DIMENSION)
 	) {
-		throw new Error(`Page height must be between 100 and ${MAX_PAGE_DIMENSION}px`);
+		throw new Error(
+			`Page height must be between 100 and ${MAX_PAGE_DIMENSION}px`,
+		);
 	}
 }
 
 /**
- * Quick update for real-time collaboration.
+ * Quick update for real-time editing (no versioning).
  */
-export const quickUpdate = mutation({
+export const quickUpdate = protectedMutation({
 	args: {
-		documentId: v.id('documents'),
-		guestToken: v.optional(v.string()),
+		documentId: v.id("documents"),
 		title: v.optional(v.string()),
 		content: v.optional(v.string()),
-		blocks: v.optional(blocksArrayValidator),
-		settings: v.optional(partialDocumentSettingsValidator)
+		blocks: v.optional(v.any()),
+		settings: v.optional(partialDocumentSettingsValidator),
 	},
 	handler: async (ctx, args) => {
-		const { document } = await requireDocumentAccess(
-			ctx,
-			args.documentId,
-			'editor',
-			args.guestToken
-		);
+		// RLS ensures we can only update our own documents
+		const document = await ctx.db.get(args.documentId);
+		if (!document) throw new Error("Document not found");
 
 		if (isDocumentLocked(document)) {
 			throw documentSealed(args.documentId);
@@ -78,11 +85,7 @@ export const quickUpdate = mutation({
 		}
 
 		const currentSettings = document.settings || DEFAULT_DOCUMENT_SETTINGS;
-
-		const newSettings = {
-			...currentSettings,
-			...(args.settings || {})
-		};
+		const newSettings = { ...currentSettings, ...(args.settings || {}) };
 
 		await ctx.db.patch(args.documentId, {
 			...(args.title !== undefined && { title: args.title }),
@@ -90,36 +93,27 @@ export const quickUpdate = mutation({
 			...(args.blocks !== undefined && { blocks: args.blocks }),
 			...(args.settings !== undefined && { settings: newSettings }),
 			updatedAt: Date.now(),
-			version: document.version + 1
+			version: document.version + 1,
 		});
-	}
+	},
 });
 
 /**
  * Update document content (creates version snapshot).
  */
-export const update = mutation({
+export const update = protectedMutation({
 	args: {
-		documentId: v.string(),
-		guestToken: v.optional(v.string()),
+		documentId: v.id("documents"),
 		title: v.optional(v.string()),
 		content: v.optional(v.string()),
-		blocks: v.optional(blocksArrayValidator),
+		blocks: v.optional(v.any()),
 		settings: v.optional(partialDocumentSettingsValidator),
 		isPublic: v.optional(v.boolean()),
-		ctx: v.optional(requestContextValidator)
 	},
-	returns: v.null(),
 	handler: async (ctx, args) => {
-		const docId = ctx.db.normalizeId('documents', args.documentId);
-		if (!docId) { throw new Error('Invalid document ID'); }
-
-		const { workosId, memberId, document } = await requireDocumentAccess(
-			ctx,
-			docId,
-			'editor',
-			args.guestToken
-		);
+		// RLS ensures we can only update our own documents
+		const document = await ctx.db.get(args.documentId);
+		if (!document) throw new Error("Document not found");
 
 		if (isDocumentLocked(document)) {
 			throw documentSealed(args.documentId);
@@ -136,33 +130,33 @@ export const update = mutation({
 		const now = Date.now();
 		const newVersion = document.version + 1;
 
-		await ctx.db.insert('documentVersions', {
-			documentId: docId,
+		// Create version snapshot
+		await ctx.db.insert("documentVersions", {
+			documentId: args.documentId,
 			version: document.version,
 			content: document.content,
 			blocks: document.blocks,
 			contentHash: await hashContent(document.content),
 			createdAt: now,
-			createdBy: workosId,
-			createdByMemberId: memberId
+			createdBy: ctx.user._id,
 		});
 
 		const newSettings: Infer<typeof documentSettingsValidator> = {
 			...(document.settings || DEFAULT_DOCUMENT_SETTINGS),
 			...(args.settings || {}),
-			...(args.isPublic !== undefined && { isPublic: args.isPublic })
+			...(args.isPublic !== undefined && { isPublic: args.isPublic }),
 		};
 
-		await ctx.db.patch(docId, {
+		await ctx.db.patch(args.documentId, {
 			...(args.title !== undefined && { title: args.title }),
 			...(args.content !== undefined && { content: args.content }),
 			...(args.blocks !== undefined && { blocks: args.blocks }),
 			...(args.isPublic !== undefined && { isPublic: args.isPublic }),
 			settings: newSettings,
 			updatedAt: now,
-			version: newVersion
+			version: newVersion,
 		});
 
 		return null;
-	}
+	},
 });

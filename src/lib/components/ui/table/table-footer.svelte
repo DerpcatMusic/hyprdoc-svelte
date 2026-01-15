@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { cn } from "$lib/utils";
-	import type { HTMLAttributes } from "svelte/elements";
+  import type { HTMLAttributes } from "svelte/elements";
+  import { cn } from "$lib/utils";
 
-	const {
-		class: className,
-		children,
-		...restProps
-	}: HTMLAttributes<HTMLTableSectionElement> = $props();
+  const {
+    class: className,
+    children,
+    ...restProps
+  }: HTMLAttributes<HTMLTableSectionElement> = $props();
 </script>
 
 <tfoot
-	class={cn(
+  class={cn(
 		"border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
 		className
 	)}
-	{...restProps}
+  {...restProps}
 >
-	{@render children?.()}
+  {@render children?.()}
 </tfoot>

@@ -4,47 +4,26 @@
  */
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Slot/Signer Colors
+// Slot/Signer Colors (REMOVED)
 // ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Default colors for slots/signers.
- * Used by slots/mutations.ts and components.
- */
-export const PARTY_COLORS = [
-	'#ef4444', // red
-	'#f97316', // orange
-	'#eab308', // yellow
-	'#22c55e', // green
-	'#3b82f6', // blue
-	'#8b5cf6', // violet
-	'#ec4899', // pink
-	'#14b8a6' // teal
-] as const;
-
-export type PartyColor = (typeof PARTY_COLORS)[number];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Document Status Constants
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const DOCUMENT_STATUSES = [
-	'draft',
-	'pending_signatures',
-	'completed',
-	'voided',
-	'expired'
+  "draft",
+  "pending_signatures",
+  "completed",
+  "voided",
+  "expired",
 ] as const;
 
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Signer Status Constants
+// Signer Status Constants (REMOVED)
 // ═══════════════════════════════════════════════════════════════════════════
-
-export const SIGNER_STATUSES = ['pending', 'viewed', 'signed', 'declined'] as const;
-
-export type SignerStatus = (typeof SIGNER_STATUSES)[number];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Token Expiry
@@ -62,26 +41,5 @@ export const SESSION_TIMEOUT_HOURS = 4;
 export const REMINDER_THRESHOLD_HOURS = 48;
 export const REMINDER_MAX_COUNT = 3;
 // ═══════════════════════════════════════════════════════════════════════════
-// Document Settings Defaults
+// REMOVED: Document Settings Defaults (Moved to domains/document-settings)
 // ═══════════════════════════════════════════════════════════════════════════
-
-export const DEFAULT_DOCUMENT_SETTINGS = {
-	fontBody: 'Inter',
-	fontHeading: 'Outfit',
-	paperColor: '#ffffff',
-	paperTexture: 'none',
-	paperTextureOpacity: 0,
-	paperTextureScale: 1,
-	paperTextureMonochromatic: true,
-	marginVertical: 40,
-	marginHorizontal: 40,
-	showMargins: false,
-	mirrorMargins: false,
-	timeFormat: '12h' as const,
-	pageWidth: 794, // A4 @ 96 DPI
-	pageHeight: 1123,
-	measurementUnit: 'px' as const,
-	authEmail: false,
-	authPhone: false,
-	realTimeEnabled: false
-};

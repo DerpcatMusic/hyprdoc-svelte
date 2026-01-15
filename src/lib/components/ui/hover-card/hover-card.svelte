@@ -1,13 +1,9 @@
 <script lang="ts">
-	import { LinkPreview as BitsHoverCard } from "bits-ui";
+  import { LinkPreview as BitsHoverCard } from "bits-ui";
 
-	let {
-		children,
-		open = $bindable(false),
-		...restProps
-	} = $props();
+  let { children, open = $bindable(false), ...restProps } = $props();
 </script>
 
 <BitsHoverCard.Root bind:open {...restProps}>
-	{@render children?.()}
+  {@render children?.()}
 </BitsHoverCard.Root>

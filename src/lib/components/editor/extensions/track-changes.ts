@@ -220,7 +220,9 @@ export const TrackChangesExtension = Extension.create<TrackChangesOptions>({
             const $pos = state.doc.resolve(from);
             const mark = $pos
               .marks()
-              .find((m) => m.type.name === "insertion" || m.type.name === "deletion");
+              .find(
+                (m) => m.type.name === "insertion" || m.type.name === "deletion"
+              );
             if (mark) {
               foundRange = { from, to, mark };
             }
@@ -265,7 +267,9 @@ export const TrackChangesExtension = Extension.create<TrackChangesOptions>({
             const $pos = state.doc.resolve(from);
             const mark = $pos
               .marks()
-              .find((m) => m.type.name === "insertion" || m.type.name === "deletion");
+              .find(
+                (m) => m.type.name === "insertion" || m.type.name === "deletion"
+              );
             if (mark) {
               foundRange = { from, to, mark };
             }
@@ -370,10 +374,14 @@ export const TrackChangesExtension = Extension.create<TrackChangesOptions>({
       new Plugin({
         key: new PluginKey("trackChanges"),
         appendTransaction: (transactions, oldState, newState) => {
-          if (!this.options.enabled) { return null; }
+          if (!this.options.enabled) {
+            return null;
+          }
 
           const tr = transactions.find((t) => t.docChanged);
-          if (!tr || tr.getMeta("trackChangesProcessed")) { return null; }
+          if (!tr || tr.getMeta("trackChangesProcessed")) {
+            return null;
+          }
 
           const newTr = newState.tr;
           newTr.setMeta("trackChangesProcessed", true);
@@ -413,7 +421,10 @@ export const TrackChangesExtension = Extension.create<TrackChangesOptions>({
 
               // DELETION
               if (oldEnd > oldStart && newEnd <= newStart) {
-                const originalContent = oldState.doc.textBetween(oldStart, oldEnd);
+                const originalContent = oldState.doc.textBetween(
+                  oldStart,
+                  oldEnd
+                );
 
                 onChangeCreated?.({
                   changeType: "deletion",

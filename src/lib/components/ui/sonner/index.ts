@@ -1,7 +1,7 @@
 import Root from "./sonner.svelte";
 
 export {
-	Root,
-	//
-	Root as Toaster,
+  Root,
+  //
+  Root as Toaster,
 };

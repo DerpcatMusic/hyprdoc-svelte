@@ -1,16 +1,31 @@
-import { MediaQuery } from "svelte/reactivity";
+import { useEventListener } from "runed";
 
-const DEFAULT_MOBILE_BREAKPOINT = 768;
+export class IsMobile {
+  #current = $state(false);
+  #mql: MediaQueryList | null = null;
 
-export class IsMobile extends MediaQuery {
-	constructor(breakpoint: number = DEFAULT_MOBILE_BREAKPOINT) {
-		super(`max-width: ${breakpoint - 1}px`);
-	}
-}
+  constructor() {
+    if (typeof window !== "undefined") {
+      this.#mql = window.matchMedia("(max-width: 768px)");
+      this.#current = this.#mql.matches;
+      
+      useEventListener(
+        () => this.#mql, 
+        "change", 
+        (e: MediaQueryListEvent) => {
+            this.#current = e.matches;
+        }
+      );
+    }
+  }
 
-/**
- * Creates a reactive mobile detection hook
- */
-export function useIsMobile(breakpoint: number = DEFAULT_MOBILE_BREAKPOINT): IsMobile {
-	return new IsMobile(breakpoint);
+  get current() {
+    return this.#current;
+  }
+
+  // Destruction is handled by useEventListener context or not needed if singleton
+  destroy() {
+    // runed handles cleanup if called in component setup
+    // Since this is likely used in a store, it persists.
+  }
 }

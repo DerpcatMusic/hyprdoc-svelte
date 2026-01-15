@@ -4,7 +4,10 @@
  * Exports all Tiptap extensions for easy importing.
  */
 
-export { SmartBlockExtension } from './smart-block-extension';
-export { FontSizeExtension } from './font-size';
-export { FontWeightExtension } from './font-weight';
-export { VariableMention, VariableMentionNode, TabToVariable } from './variable-mention';
+export { AISelectionExtension } from "./AISelectionExtension";
+export { CollabCursorExtension } from "./collab-cursor";
+export { FontSize } from "./FontSize";
+export { FontWeight } from "./FontWeight";
+export { TrackChangesExtension } from "./track-changes";
+export { GlobalVariableNode } from "./GlobalVariableNode";
+

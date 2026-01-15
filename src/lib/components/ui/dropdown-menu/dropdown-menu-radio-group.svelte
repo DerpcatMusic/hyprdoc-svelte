@@ -1,13 +1,9 @@
 <script lang="ts">
-	import { DropdownMenu as BitsDropdownMenu } from "bits-ui";
+  import { DropdownMenu as BitsDropdownMenu } from "bits-ui";
 
-	let {
-		value = $bindable(""),
-		children,
-		...restProps
-	} = $props();
+  let { value = $bindable(""), children, ...restProps } = $props();
 </script>
 
 <BitsDropdownMenu.RadioGroup bind:value {...restProps}>
-	{@render children?.()}
+  {@render children?.()}
 </BitsDropdownMenu.RadioGroup>

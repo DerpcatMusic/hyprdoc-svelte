@@ -11,18 +11,28 @@
  * @returns Normalized string ID or null if invalid
  */
 export const normalizeId = (id: unknown): string | null => {
-  if (!id) { return null; }
+  if (!id) {
+    return null;
+  }
 
   // Already a string
-  if (typeof id === "string") { return id; }
+  if (typeof id === "string") {
+    return id;
+  }
 
   // Object with _id or id property (common for Convex documents and slot objects)
   if (typeof id === "object" && id !== null) {
     const obj = id as Record<string, unknown>;
 
     // Check common ID properties and stringify them
-    if (obj._id !== undefined && obj._id !== null) { return String(obj._id); }
-    if (obj.id !== undefined && obj.id !== null) { return String(obj.id); }
+    const _id = obj._id;
+    if (_id !== undefined && _id !== null) {
+      return String(_id);
+    }
+    const idProp = obj.id;
+    if (idProp !== undefined && idProp !== null) {
+      return String(idProp);
+    }
 
     // Fallback to String() for other objects (e.g., Convex ID runtime type itself)
     return String(id);

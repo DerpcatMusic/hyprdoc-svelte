@@ -6,10 +6,14 @@
  * @returns '#000000' for light backgrounds, '#ffffff' for dark backgrounds
  */
 export const getContrastColor = (hexcolor: string): string => {
-  if (!hexcolor) { return "#000000"; }
+  if (!hexcolor) {
+    return "#000000";
+  }
 
   // Handle specific CSS variables if passed loosely (fallback)
-  if (hexcolor.startsWith("hsl") || hexcolor.startsWith("var")) { return "currentColor"; }
+  if (hexcolor.startsWith("hsl") || hexcolor.startsWith("var")) {
+    return "currentColor";
+  }
 
   // Remove hash
   const hex = hexcolor.replace("#", "");
@@ -28,7 +32,9 @@ export const getContrastColor = (hexcolor: string): string => {
     const g = Number.parseInt(fullHex.slice(2, 4), 16);
     const b = Number.parseInt(fullHex.slice(4, 6), 16);
 
-    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) { return "#000000"; }
+    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
+      return "#000000";
+    }
 
     const yiq = (r * 299 + g * 587 + b * 114) / 1000;
     return yiq >= 128 ? "#000000" : "#ffffff";

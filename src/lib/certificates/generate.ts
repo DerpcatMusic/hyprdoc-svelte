@@ -27,7 +27,10 @@ export interface CertificateChain {
  * @param password - Password for the PKCS12 bundle (optional, defaults to empty)
  * @returns Certificate chain with PEM strings and PKCS12 buffer
  */
-export function generateCertificateChain(orgName: string, password = ""): CertificateChain {
+export function generateCertificateChain(
+  orgName: string,
+  password = ""
+): CertificateChain {
   const now = new Date();
   const later = new Date();
   later.setFullYear(now.getFullYear() + 100); // 100-year validity
@@ -206,7 +209,11 @@ export function generateCertificateChain(orgName: string, password = ""): Certif
 export function loadPkcs12(
   base64P12: string,
   password: string
-): { cert: forge.pki.Certificate; key: forge.pki.PrivateKey; chain: forge.pki.Certificate[] } {
+): {
+  cert: forge.pki.Certificate;
+  key: forge.pki.PrivateKey;
+  chain: forge.pki.Certificate[];
+} {
   const der = Buffer.from(base64P12, "base64").toString("binary");
   const asn1 = forge.asn1.fromDer(der);
   const p12 = forge.pkcs12.pkcs12FromAsn1(asn1, password);
