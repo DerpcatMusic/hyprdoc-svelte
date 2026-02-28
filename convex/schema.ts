@@ -1,10 +1,50 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
-// Domain imports (flat file structure)
-import { aiTemplateMetadataValidator, auditMetadataValidator } from './domains/audit';
-import { documentSettingsValidator } from './domains/settings';
-import { documentStatusValidator, documentKindValidator } from './domains/documents';
+// ═══════════════════════════════════════════════════════════════
+// CONVEX VALIDATORS (for schema.ts defineTable)
+// ═══════════════════════════════════════════════════════════════
+
+export const documentStatusValidator = v.union(
+  v.literal("draft"),
+  v.literal("pending_signatures"),
+  v.literal("completed"),
+  v.literal("expired"),
+  v.literal("voided")
+);
+
+export const documentKindValidator = v.optional(
+  v.union(v.literal("template"), v.literal("envelope"))
+);
+
+export const documentSettingsValidator = v.object({
+  pageWidth: v.optional(v.number()),
+  pageHeight: v.optional(v.number()),
+  marginVertical: v.optional(v.number()),
+  marginHorizontal: v.optional(v.number()),
+  marginLeft: v.optional(v.number()),
+  marginRight: v.optional(v.number()),
+  showMargins: v.optional(v.boolean()),
+  paperTexture: v.optional(v.string()),
+  paperTextureOpacity: v.optional(v.number()),
+  paperTextureScale: v.optional(v.number()),
+  paperTextureColor: v.optional(v.string()),
+  paperTextureMonochromatic: v.optional(v.boolean()),
+  backgroundColor: v.optional(v.string()),
+  fontSize: v.optional(v.number()),
+  lineHeight: v.optional(v.number()),
+  fontBody: v.optional(v.string()),
+  fontTitle: v.optional(v.string()),
+  realTimeEnabled: v.optional(v.boolean()),
+  isPublic: v.optional(v.boolean()),
+  mirrorMargins: v.optional(v.boolean()),
+  category: v.optional(v.string()),
+  tags: v.optional(v.array(v.string())),
+  description: v.optional(v.string()),
+});
+
+export const auditMetadataValidator = v.optional(v.any());
+export const aiTemplateMetadataValidator = v.optional(v.any());
 
 export default defineSchema(
 	{
@@ -234,6 +274,15 @@ export default defineSchema(
 			content: v.string(),
 			// blocks: v.any() until smart blocks rebuilt
 			blocks: v.any(),
+			parties: v.optional(v.array(v.object({
+				id: v.string(),
+				name: v.string(),
+				color: v.string(),
+				email: v.optional(v.string()),
+				phone: v.optional(v.string()),
+				title: v.optional(v.string()),
+				company: v.optional(v.string()),
+			}))),
 
 			status: v.union(
 				v.literal('draft'),
@@ -410,19 +459,87 @@ export default defineSchema(
 		// ═══════════════════════════════════════════════════════════════
 		// DOCUMENT VERSIONS - Version history for compliance
 		// ═══════════════════════════════════════════════════════════════
-		documentVersions: defineTable({
-			documentId: v.id('documents'),
-			version: v.number(),
-			content: v.string(),
+			documentVersions: defineTable({
+				documentId: v.id('documents'),
+				version: v.number(),
+				content: v.string(),
 			// blocks: v.any() until smart blocks rebuilt
 			blocks: v.any(),
+			parties: v.optional(v.array(v.any())),
 			contentHash: v.string(),
 			createdAt: v.number(),
 			createdBy: v.optional(v.id('users')),
 			createdByMemberId: v.optional(v.id('documentMembers'))
-		})
-			.index('by_document', ['documentId'])
-			.index('by_document_and_version', ['documentId', 'version']),
+			})
+				.index('by_document', ['documentId'])
+				.index('by_document_and_version', ['documentId', 'version']),
+
+			// BLOCK LINEAGE EVENTS - Append-only block hash chain with parent links
+			blockLineageEvents: defineTable({
+				documentId: v.id('documents'),
+				blockId: v.string(),
+				parentBlockId: v.optional(v.string()),
+				changeType: v.union(
+					v.literal('created'),
+					v.literal('updated'),
+					v.literal('deleted')
+				),
+				reason: v.optional(v.string()), // why
+				how: v.optional(v.string()), // how
+				changeSummary: v.optional(v.any()),
+				previousBlockHash: v.optional(v.string()),
+				parentAnchorHash: v.optional(v.string()),
+				blockHash: v.string(),
+				lineageHash: v.string(),
+				createdAt: v.number(),
+				createdBy: v.optional(v.id('users'))
+			})
+				.index('by_document_and_created_at', ['documentId', 'createdAt'])
+				.index('by_document_block_created_at', ['documentId', 'blockId', 'createdAt'])
+				.index('by_lineage_hash', ['lineageHash']),
+
+			liveContractStates: defineTable({
+				documentId: v.id('documents'),
+				baseSealHash: v.string(),
+				schemaVersion: v.number(),
+				variables: v.any(),
+				requirements: v.any(),
+				pendingActions: v.any(),
+				lastEventHash: v.optional(v.string()),
+				stateHash: v.string(),
+				status: v.union(v.literal('active'), v.literal('paused'), v.literal('completed')),
+				createdAt: v.number(),
+				updatedAt: v.number(),
+				createdBy: v.optional(v.id('users'))
+			})
+				.index('by_document', ['documentId'])
+				.index('by_state_hash', ['stateHash'])
+				.index('by_status', ['status']),
+
+			liveContractEvents: defineTable({
+				documentId: v.id('documents'),
+				liveStateId: v.id('liveContractStates'),
+				eventType: v.union(
+					v.literal('signal'),
+					v.literal('requirement_met'),
+					v.literal('action_enqueued'),
+					v.literal('action_executed')
+				),
+				source: v.union(
+					v.literal('system'),
+					v.literal('owner'),
+					v.literal('signer'),
+					v.literal('integration')
+				),
+				payload: v.any(),
+				previousHash: v.optional(v.string()),
+				eventHash: v.string(),
+				createdAt: v.number(),
+				createdBy: v.optional(v.id('users'))
+			})
+				.index('by_document_and_created_at', ['documentId', 'createdAt'])
+				.index('by_state_and_created_at', ['liveStateId', 'createdAt'])
+				.index('by_event_hash', ['eventHash']),
 
 		// ═══════════════════════════════════════════════════════════════
 		// DOCUMENT CHANGES - Track Changes / Redlining Suggestions
@@ -465,6 +582,49 @@ export default defineSchema(
 			.index('by_status', ['status'])
 			.index('by_document_and_status', ['documentId', 'status'])
 			.index('by_author', ['authorId']),
+
+		// ═══════════════════════════════════════════════════════════════
+		// COMMENT THREADS - Anchored to text ranges for collaboration
+		// ═══════════════════════════════════════════════════════════════
+		commentThreads: defineTable({
+			documentId: v.id('documents'),
+			// Text anchor (ProseMirror positions)
+			anchorFrom: v.number(),
+			anchorTo: v.number(),
+			anchorText: v.optional(v.string()), // Snapshot for orphan detection
+			// Thread metadata
+			isResolved: v.boolean(),
+			resolvedAt: v.optional(v.number()),
+			resolvedBy: v.optional(v.id('users')),
+			// Author
+			createdAt: v.number(),
+			createdBy: v.id('users'),
+			createdByName: v.string(),
+			createdByColor: v.optional(v.string()),
+		})
+			.index('by_document', ['documentId'])
+			.index('by_document_resolved', ['documentId', 'isResolved'])
+			.index('by_created_at', ['createdAt']),
+
+		// ═══════════════════════════════════════════════════════════════
+		// COMMENTS - Individual messages within threads
+		// ═══════════════════════════════════════════════════════════════
+		comments: defineTable({
+			threadId: v.id('commentThreads'),
+			documentId: v.id('documents'), // Denormalized for easier querying
+			content: v.string(),
+			// Author
+			authorId: v.id('users'),
+			authorName: v.string(),
+			authorColor: v.optional(v.string()),
+			// Timestamps
+			createdAt: v.number(),
+			editedAt: v.optional(v.number()),
+			isDeleted: v.optional(v.boolean()),
+		})
+			.index('by_thread', ['threadId'])
+			.index('by_document', ['documentId'])
+			.index('by_created_at', ['createdAt']),
 
 		// ═══════════════════════════════════════════════════════════════
 		// GLOSSARY - Legal dictionary and custom terms
@@ -724,9 +884,172 @@ export default defineSchema(
 			.index('by_status', ['status'])
 			.index('by_quarter', ['quarter'])
 			.index('by_public', ['isPublic'])
-			.index('by_quarter_and_order', ['quarter', 'order'])
+			.index('by_quarter_and_order', ['quarter', 'order']),
+
+		// ═══════════════════════════════════════════════════════════════
+		// SIGNING SESSIONS - Manages the overall signing request lifecycle
+		// ═══════════════════════════════════════════════════════════════
+		signingSessions: defineTable({
+			// Reference to the document being signed
+			documentId: v.id('documents'),
+
+			// Session lifecycle
+			status: v.union(
+				v.literal('draft'),           // Sender is configuring signers
+				v.literal('pending'),         // Waiting for signers
+				v.literal('in_progress'),     // At least one signer has started
+				v.literal('completed'),       // All signers have signed
+				v.literal('cancelled'),       // Sender cancelled
+				v.literal('expired')          // Past deadline
+			),
+
+			// Deadline settings
+			expiresAt: v.optional(v.number()),
+			reminderIntervalHours: v.optional(v.number()), // Auto-reminder frequency
+			lastReminderAt: v.optional(v.number()),
+
+			// Signing order
+			signingOrder: v.union(
+				v.literal('parallel'),        // All signers can sign simultaneously
+				v.literal('sequential')       // Signers sign in order
+			),
+			currentSignerIndex: v.optional(v.number()), // For sequential signing
+
+			// Completion data
+			completedAt: v.optional(v.number()),
+			completedHash: v.optional(v.string()), // Final document hash
+
+			// Metadata
+			initiatedBy: v.id('users'),
+			initiatedAt: v.number(),
+			updatedAt: v.number(),
+
+			// Settings
+			settings: v.optional(v.object({
+				allowDecline: v.optional(v.boolean()),
+				allowPrintAndSign: v.optional(v.boolean()),
+				requireEmailVerification: v.optional(v.boolean()),
+				requirePhoneVerification: v.optional(v.boolean()),
+				requireBoth: v.optional(v.boolean()), // Email AND phone
+			})),
+		})
+			.index('by_document', ['documentId'])
+			.index('by_status', ['status'])
+			.index('by_initiator', ['initiatedBy'])
+			.index('by_expires', ['expiresAt']),
+
+		// ═══════════════════════════════════════════════════════════════
+		// SIGNER ASSIGNMENTS - Maps party slots to real people
+		// ═══════════════════════════════════════════════════════════════
+		signerAssignments: defineTable({
+			// References
+			sessionId: v.id('signingSessions'),
+			documentId: v.id('documents'),
+			slotId: v.optional(v.id('slots')), // Template party slot
+
+			// Signer info
+			email: v.string(),
+			phone: v.optional(v.string()),
+			phoneCountryCode: v.optional(v.string()),
+			legalName: v.string(),
+			role: v.string(), // "Landlord", "Tenant", etc.
+			color: v.optional(v.string()),
+
+			// Order (for sequential signing)
+			order: v.number(),
+
+			// Authentication requirements
+			authMethod: v.union(
+				v.literal('email'),
+				v.literal('phone'),
+				v.literal('both')
+			),
+
+			// Verification status
+			emailVerified: v.boolean(),
+			phoneVerified: v.boolean(),
+			emailVerifiedAt: v.optional(v.number()),
+			phoneVerifiedAt: v.optional(v.number()),
+
+			// Signing status
+			status: v.union(
+				v.literal('pending'),          // Waiting for assignment to start
+				v.literal('invited'),          // Invite sent
+				v.literal('viewed'),           // Opened the signing link
+				v.literal('authenticating'),   // In verification process
+				v.literal('ready'),            // Verified, can sign
+				v.literal('signing'),          // Actively signing
+				v.literal('signed'),           // Completed signature
+				v.literal('declined')          // Declined to sign
+			),
+
+			// Timestamps
+			invitedAt: v.optional(v.number()),
+			viewedAt: v.optional(v.number()),
+			signedAt: v.optional(v.number()),
+			declinedAt: v.optional(v.number()),
+			declineReason: v.optional(v.string()),
+
+			// Access token (for signer portal)
+			accessToken: v.optional(v.string()),
+			tokenExpiresAt: v.optional(v.number()),
+
+			// Metadata captured at signing
+			signatureMetadata: v.optional(v.object({
+				ipAddress: v.optional(v.string()),
+				userAgent: v.optional(v.string()),
+				deviceFingerprint: v.optional(v.string()),
+				geolocation: v.optional(v.object({
+					country: v.string(),
+					region: v.string(),
+					city: v.string(),
+				})),
+			})),
+		})
+			.index('by_session', ['sessionId'])
+			.index('by_document', ['documentId'])
+			.index('by_email', ['email'])
+			.index('by_access_token', ['accessToken'])
+			.index('by_session_and_order', ['sessionId', 'order'])
+			.index('by_status', ['status']),
+
+		// ═══════════════════════════════════════════════════════════════
+		// AUTH CHALLENGES - OTP verification for signer authentication
+		// ═══════════════════════════════════════════════════════════════
+		authChallenges: defineTable({
+			// Reference to signer assignment
+			assignmentId: v.id('signerAssignments'),
+
+			// Challenge type
+			type: v.union(v.literal('email'), v.literal('phone')),
+
+			// OTP data
+			code: v.string(), // 6-digit code
+			sentTo: v.string(), // Email or phone number
+
+			// Lifecycle
+			sentAt: v.number(),
+			expiresAt: v.number(),
+			attempts: v.number(), // Track failed attempts
+			maxAttempts: v.number(), // Usually 5
+
+			// Status
+			status: v.union(
+				v.literal('pending'),
+				v.literal('verified'),
+				v.literal('expired'),
+				v.literal('failed') // Max attempts exceeded
+			),
+			verifiedAt: v.optional(v.number()),
+
+			// Metadata
+			ipAddress: v.optional(v.string()),
+			userAgent: v.optional(v.string()),
+		})
+			.index('by_assignment', ['assignmentId'])
+			.index('by_assignment_and_type', ['assignmentId', 'type'])
+			.index('by_expires', ['expiresAt']),
 	},
 	// Schema validation enabled for production
 	{ schemaValidation: false }
 );
-

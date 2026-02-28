@@ -2,20 +2,6 @@
  * lib/core.ts - SINGLE SOURCE OF TRUTH
  * ════════════════════════════════════════════════════════════════════════════
  * Every function in the backend imports from here. Period.
- *
- * Features baked in:
- * - Authentication (WorkOS JWT)
- * - Row-Level Security (per-table rules)
- * - Triggers (auto-audit logging)
- * - Type-safe user context
- * - Zod validation (via zCustomQuery/zCustomMutation)
- *
- * Exports:
- * - query/mutation: Optional auth + RLS (Convex validators)
- * - protectedQuery/protectedMutation: Required auth + RLS (Convex validators)
- * - zQuery/zMutation: Optional auth + RLS (Zod validators)
- * - zProtectedQuery/zProtectedMutation: Required auth + RLS (Zod validators)
- * - internalQuery/internalMutation: Raw (scheduled jobs, webhooks)
  */
 
 import { v } from "convex/values";
@@ -23,8 +9,9 @@ import {
 	customQuery,
 	customMutation,
 	customCtx,
+	customAction,
 } from "convex-helpers/server/customFunctions";
-import { zCustomQuery, zCustomMutation, zid } from "convex-helpers/server/zod";
+import { zCustomQuery, zCustomMutation, zCustomAction, zid } from "convex-helpers/server/zod4";
 import {
 	wrapDatabaseReader,
 	wrapDatabaseWriter,
@@ -38,12 +25,12 @@ import {
 	internalMutation as rawInternalMutation,
 } from "../_generated/server";
 import type { QueryCtx, ActionCtx } from "../_generated/server";
-import type { DataModel, Id } from "../_generated/dataModel";
-import { internal } from "../_generated/api";
+import type { DataModel, Id, Doc } from "../_generated/dataModel";
 import { triggers } from "./triggers";
+import * as zod4 from "zod/v4";
 
 // ════════════════════════════════════════════════════════════════════════════
-// TYPES
+// TYPES & ERRORS
 // ════════════════════════════════════════════════════════════════════════════
 
 export interface AuthUser {
@@ -61,30 +48,7 @@ export class AuthError extends Error {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// ACTION HELPERS
-// ════════════════════════════════════════════════════════════════════════════
-
-import { customAction } from "convex-helpers/server/customFunctions";
-
-async function getActionUser(ctx: ActionCtx): Promise<AuthUser | null> {
-	const identity = await ctx.auth.getUserIdentity();
-	if (!identity) return null;
-
-	const user = await ctx.runQuery(internal.users.queries.internalGetByWorkosId, {
-		workosId: identity.subject,
-	});
-
-	if (!user) return null;
-	return {
-		_id: user._id,
-		workosId: identity.subject,
-		email: user.email,
-		name: user.name,
-	};
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// USER RESOLUTION
+// USER RESOLUTION helper
 // ════════════════════════════════════════════════════════════════════════════
 
 async function getUser(ctx: QueryCtx): Promise<AuthUser | null> {
@@ -106,14 +70,11 @@ async function getUser(ctx: QueryCtx): Promise<AuthUser | null> {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// RLS RULES - ALL TABLES
+// RLS RULES - ALL TABLES (Static Definitions)
 // ════════════════════════════════════════════════════════════════════════════
 
 function rlsRules(userId: Id<"users"> | null): Rules<QueryCtx, DataModel> {
 	return {
-		// ─────────────────────────────────────────────────────────────────────────
-		// CORE TABLES
-		// ─────────────────────────────────────────────────────────────────────────
 		documents: {
 			read: async (_, doc) => doc.isPublic === true || doc.ownerId === userId,
 			insert: async () => !!userId,
@@ -125,9 +86,9 @@ function rlsRules(userId: Id<"users"> | null): Rules<QueryCtx, DataModel> {
 			modify: async (_, user) => user._id === userId,
 		},
 		auditLogs: {
-			read: async () => false, // Never readable via API
-			insert: async () => true, // System can insert
-			modify: async () => false, // Immutable
+			read: async () => false,
+			insert: async () => true,
+			modify: async () => false,
 		},
 		documentVersions: {
 			read: async (ctx, version) => {
@@ -135,12 +96,44 @@ function rlsRules(userId: Id<"users"> | null): Rules<QueryCtx, DataModel> {
 				return doc ? doc.isPublic === true || doc.ownerId === userId : false;
 			},
 			insert: async () => !!userId,
-			modify: async () => false, // Immutable
+			modify: async () => false,
 		},
-
-		// ─────────────────────────────────────────────────────────────────────────
-		// SIGNING TABLES
-		// ─────────────────────────────────────────────────────────────────────────
+		blockLineageEvents: {
+			read: async (ctx, event) => {
+				const doc = await ctx.db.get(event.documentId);
+				return doc ? doc.ownerId === userId : false;
+			},
+			insert: async (ctx, event) => {
+				const doc = await ctx.db.get(event.documentId);
+				return doc?.ownerId === userId;
+			},
+			modify: async () => false,
+		},
+		liveContractStates: {
+			read: async (ctx, state) => {
+				const doc = await ctx.db.get(state.documentId);
+				return doc ? doc.ownerId === userId : false;
+			},
+			insert: async (ctx, state) => {
+				const doc = await ctx.db.get(state.documentId);
+				return doc?.ownerId === userId;
+			},
+			modify: async (ctx, state) => {
+				const doc = await ctx.db.get(state.documentId);
+				return doc?.ownerId === userId;
+			},
+		},
+		liveContractEvents: {
+			read: async (ctx, event) => {
+				const doc = await ctx.db.get(event.documentId);
+				return doc ? doc.ownerId === userId : false;
+			},
+			insert: async (ctx, event) => {
+				const doc = await ctx.db.get(event.documentId);
+				return doc?.ownerId === userId;
+			},
+			modify: async () => false,
+		},
 		slots: {
 			read: async (ctx, slot) => {
 				const doc = await ctx.db.get(slot.documentId);
@@ -174,18 +167,14 @@ function rlsRules(userId: Id<"users"> | null): Rules<QueryCtx, DataModel> {
 				const doc = await ctx.db.get(sig.documentId);
 				return doc ? doc.ownerId === userId : false;
 			},
-			insert: async () => true, // Signers can insert via public signing flow
-			modify: async () => false, // Immutable once created
+			insert: async () => true,
+			modify: async () => false,
 		},
-
-		// ─────────────────────────────────────────────────────────────────────────
-		// COLLABORATION TABLES
-		// ─────────────────────────────────────────────────────────────────────────
 		documentMembers: {
 			read: async (ctx, member) => {
 				const doc = await ctx.db.get(member.documentId);
 				if (doc?.ownerId === userId) return true;
-				return member.workosId === userId;
+				return member.workosId === (userId as unknown as string);
 			},
 			insert: async (ctx, member) => {
 				const doc = await ctx.db.get(member.documentId);
@@ -217,31 +206,27 @@ function rlsRules(userId: Id<"users"> | null): Rules<QueryCtx, DataModel> {
 			},
 			insert: async (ctx, change) => {
 				const doc = await ctx.db.get(change.documentId);
-				return !!doc; // Anyone with doc access can suggest changes
+				return !!doc;
 			},
 			modify: async (ctx, change) => {
 				const doc = await ctx.db.get(change.documentId);
-				return doc?.ownerId === userId; // Only owner can accept/reject
+				return doc?.ownerId === userId;
 			},
 		},
-
-		// ─────────────────────────────────────────────────────────────────────────
-		// AI & CONTENT TABLES
-		// ─────────────────────────────────────────────────────────────────────────
 		aiTemplates: {
 			read: async (_, template) => template.isActive !== false,
 			insert: async () => !!userId,
-			modify: async (_, template) => template.workosId === userId,
+			modify: async (_, template) => template.workosId === (userId as unknown as string),
 		},
 		glossaryTerms: {
-			read: async (_, term) => !term.workosId || term.workosId === userId,
+			read: async (_, term) => !term.workosId || term.workosId === (userId as unknown as string),
 			insert: async () => !!userId,
-			modify: async (_, term) => term.workosId === userId,
+			modify: async (_, term) => term.workosId === (userId as unknown as string),
 		},
 		globalVariables: {
 			read: async (ctx, variable) => {
 				if (variable.scope === "system") return true;
-				if (variable.scope === "user") return variable.workosId === userId;
+				if (variable.scope === "user") return variable.workosId === (userId as unknown as string);
 				if (variable.scope === "document" && variable.documentId) {
 					const doc = await ctx.db.get(variable.documentId);
 					return doc ? doc.ownerId === userId || doc.isPublic === true : false;
@@ -251,41 +236,33 @@ function rlsRules(userId: Id<"users"> | null): Rules<QueryCtx, DataModel> {
 			insert: async () => !!userId,
 			modify: async (_, variable) => {
 				if (variable.scope === "system") return false;
-				return variable.workosId === userId;
+				return variable.workosId === (userId as unknown as string);
 			},
 		},
-
-		// ─────────────────────────────────────────────────────────────────────────
-		// INTEGRATION TABLES
-		// ─────────────────────────────────────────────────────────────────────────
 		hubspotConnections: {
-			read: async (_, conn) => conn.workosId === userId,
+			read: async (_, conn) => conn.workosId === (userId as unknown as string),
 			insert: async () => !!userId,
-			modify: async (_, conn) => conn.workosId === userId,
+			modify: async (_, conn) => conn.workosId === (userId as unknown as string),
 		},
 		hubspotMappings: {
-			read: async (_, mapping) => mapping.workosId === userId,
+			read: async (_, mapping) => mapping.workosId === (userId as unknown as string),
 			insert: async () => !!userId,
-			modify: async (_, mapping) => mapping.workosId === userId,
+			modify: async (_, mapping) => mapping.workosId === (userId as unknown as string),
 		},
 		hubspotWebhookLogs: {
-			read: async () => false, // Internal only
+			read: async () => false,
 			insert: async () => true,
 			modify: async () => false,
 		},
-
-		// ─────────────────────────────────────────────────────────────────────────
-		// INTERNAL/SYSTEM TABLES
-		// ─────────────────────────────────────────────────────────────────────────
 		pendingSubscriptions: {
 			read: async () => false,
 			insert: async () => true,
 			modify: async () => true,
 		},
 		otpCodes: {
-			read: async () => false, // Never readable via API
-			insert: async () => true, // System can insert
-			modify: async () => true, // System can modify
+			read: async () => false,
+			insert: async () => true,
+			modify: async () => true,
 		},
 		counters: {
 			read: async () => false,
@@ -301,123 +278,9 @@ function rlsRules(userId: Id<"users"> | null): Rules<QueryCtx, DataModel> {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// EXPORTED WRAPPERS — USE THESE EVERYWHERE
+// WRAPPERS (ZOD) — Defined BEFORE recursive imports
 // ════════════════════════════════════════════════════════════════════════════
 
-/**
- * query - Optional auth, RLS enforced
- * Use for: Public reads, optional user context
- */
-export const query = customQuery(
-	rawQuery,
-	customCtx(async (ctx) => {
-		const user = await getUser(ctx);
-		return {
-			user,
-			db: wrapDatabaseReader(ctx, ctx.db, rlsRules(user?._id ?? null)),
-		};
-	}),
-);
-
-/**
- * mutation - Optional auth, RLS enforced, Triggers active
- * Use for: Public writes (rare), users.store
- */
-export const mutation = customMutation(
-	rawMutation,
-	customCtx(async (ctx) => {
-		const user = await getUser(ctx);
-		const triggeredCtx = triggers.wrapDB(ctx);
-		return {
-			user,
-			db: wrapDatabaseWriter(
-				ctx,
-				triggeredCtx.db,
-				rlsRules(user?._id ?? null),
-			),
-		};
-	}),
-);
-
-/**
- * protectedQuery - Required auth, RLS enforced
- * Use for: User-specific reads
- */
-export const protectedQuery = customQuery(
-	rawQuery,
-	customCtx(async (ctx) => {
-		const user = await getUser(ctx);
-		if (!user) throw new AuthError("Authentication required");
-		return {
-			user,
-			db: wrapDatabaseReader(ctx, ctx.db, rlsRules(user._id)),
-		};
-	}),
-);
-
-/**
- * protectedMutation - Required auth, RLS enforced, Triggers active
- * Use for: User-specific writes (most common)
- */
-export const protectedMutation = customMutation(
-	rawMutation,
-	customCtx(async (ctx) => {
-		const user = await getUser(ctx);
-		if (!user) throw new AuthError("Authentication required");
-		const triggeredCtx = triggers.wrapDB(ctx);
-		return {
-			user,
-			db: wrapDatabaseWriter(ctx, triggeredCtx.db, rlsRules(user._id)),
-		};
-	}),
-);
-
-/**
- * action - Optional auth
- */
-export const action = customAction(
-	rawAction,
-	customCtx(async (ctx) => {
-		const user = await getActionUser(ctx);
-		return { user };
-	}),
-);
-
-/**
- * protectedAction - Required auth
- */
-export const protectedAction = customAction(
-	rawAction,
-	customCtx(async (ctx) => {
-		const user = await getActionUser(ctx);
-		if (!user) throw new AuthError("Authentication required");
-		return { user };
-	}),
-);
-
-/**
- * internalQuery - No auth, no RLS (trusted)
- * Use for: Scheduled jobs, internal reads
- */
-export const internalQuery = rawInternalQuery;
-
-/**
- * internalMutation - No auth, no RLS, Triggers active
- * Use for: Scheduled jobs, webhooks, system writes
- */
-export const internalMutation = customMutation(
-	rawInternalMutation,
-	customCtx(triggers.wrapDB),
-);
-
-// ════════════════════════════════════════════════════════════════════════════
-// ZOD-POWERED WRAPPERS — For Zod argument validation
-// ════════════════════════════════════════════════════════════════════════════
-
-/**
- * zQuery - Optional auth, RLS enforced, Zod validation
- * Use for: Public reads with Zod schemas (z.string(), z.email(), etc.)
- */
 export const zQuery = zCustomQuery(
 	rawQuery,
 	customCtx(async (ctx) => {
@@ -429,10 +292,36 @@ export const zQuery = zCustomQuery(
 	}),
 );
 
-/**
- * zMutation - Optional auth, RLS enforced, Triggers active, Zod validation
- * Use for: Public writes with Zod schemas
- */
+export const zProtectedQuery = zCustomQuery(
+	rawQuery,
+	customCtx(async (ctx) => {
+		const user = await getUser(ctx);
+		if (!user) throw new AuthError("Authentication required");
+		return {
+			user,
+			db: wrapDatabaseReader(ctx, ctx.db, rlsRules(user._id)),
+		};
+	}),
+);
+
+export const zInternalQuery = zCustomQuery(
+	rawInternalQuery,
+	customCtx(async () => ({})),
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RE-EXPORTS (ZOD)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export { zod4 as z };
+export { zid };
+export type { Rules };
+export { triggers };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WRAPPERS (MUTATIONS & ACTIONS) — Defined BEFORE recursive imports
+// ═══════════════════════════════════════════════════════════════════════════
+
 export const zMutation = zCustomMutation(
 	rawMutation,
 	customCtx(async (ctx) => {
@@ -449,26 +338,6 @@ export const zMutation = zCustomMutation(
 	}),
 );
 
-/**
- * zProtectedQuery - Required auth, RLS enforced, Zod validation
- * Use for: User-specific reads with Zod schemas
- */
-export const zProtectedQuery = zCustomQuery(
-	rawQuery,
-	customCtx(async (ctx) => {
-		const user = await getUser(ctx);
-		if (!user) throw new AuthError("Authentication required");
-		return {
-			user,
-			db: wrapDatabaseReader(ctx, ctx.db, rlsRules(user._id)),
-		};
-	}),
-);
-
-/**
- * zProtectedMutation - Required auth, RLS enforced, Triggers active, Zod validation
- * Use for: User-specific writes with Zod schemas (MOST POWERFUL)
- */
 export const zProtectedMutation = zCustomMutation(
 	rawMutation,
 	customCtx(async (ctx) => {
@@ -482,11 +351,124 @@ export const zProtectedMutation = zCustomMutation(
 	}),
 );
 
-// ════════════════════════════════════════════════════════════════════════════
-// RE-EXPORTS
-// ════════════════════════════════════════════════════════════════════════════
+export const zInternalMutation = zCustomMutation(
+	rawInternalMutation,
+	customCtx(triggers.wrapDB),
+);
 
-export { v };
-export { zid } from "convex-helpers/server/zod";
-export { triggers } from "./triggers";
+// ═══════════════════════════════════════════════════════════════════════════
+// ACTION HELPERS (Break Circular Dependency)
+// ═══════════════════════════════════════════════════════════════════════════
 
+// NOTE: We avoid importing from "../_generated/api" at the top level
+// to prevent a circular dependency (core -> api -> mutations -> core).
+// Instead, we use string-based references for internal queries in actions.
+
+async function getActionUser(ctx: ActionCtx): Promise<AuthUser | null> {
+	const identity = await ctx.auth.getUserIdentity();
+	if (!identity) return null;
+
+	// Use string reference to break the static 'api' cycle
+	const user = await ctx.runQuery("users/queries:internalGetByWorkosId" as any, {
+		workosId: identity.subject,
+	});
+
+	if (!user) return null;
+	return {
+		_id: user._id,
+		workosId: identity.subject,
+		email: user.email,
+		name: user.name,
+	};
+}
+
+export const zAction = zCustomAction(
+	rawAction,
+	customCtx(async (ctx) => ({ user: await getActionUser(ctx) })),
+);
+
+export const zProtectedAction = zCustomAction(
+	rawAction,
+	customCtx(async (ctx) => {
+		const user = await getActionUser(ctx);
+		if (!user) throw new AuthError("Authentication required");
+		return { user };
+	}),
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEGACY (NON-ZOD) WRAPPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const query = customQuery(
+	rawQuery,
+	customCtx(async (ctx) => {
+		const user = await getUser(ctx);
+		return {
+			user,
+			db: wrapDatabaseReader(ctx, ctx.db, rlsRules(user?._id ?? null)),
+		};
+	}),
+);
+
+export const mutation = customMutation(
+	rawMutation,
+	customCtx(async (ctx) => {
+		const user = await getUser(ctx);
+		const triggeredCtx = triggers.wrapDB(ctx);
+		return {
+			user,
+			db: wrapDatabaseWriter(
+				ctx,
+				triggeredCtx.db,
+				rlsRules(user?._id ?? null),
+			),
+		};
+	}),
+);
+
+export const protectedQuery = customQuery(
+	rawQuery,
+	customCtx(async (ctx) => {
+		const user = await getUser(ctx);
+		if (!user) throw new AuthError("Authentication required");
+		return {
+			user,
+			db: wrapDatabaseReader(ctx, ctx.db, rlsRules(user._id)),
+		};
+	}),
+);
+
+export const protectedMutation = customMutation(
+	rawMutation,
+	customCtx(async (ctx) => {
+		const user = await getUser(ctx);
+		if (!user) throw new AuthError("Authentication required");
+		const triggeredCtx = triggers.wrapDB(ctx);
+		return {
+			user,
+			db: wrapDatabaseWriter(ctx, triggeredCtx.db, rlsRules(user._id)),
+		};
+	}),
+);
+
+export const internalQuery = rawInternalQuery;
+
+export const internalMutation = customMutation(
+	rawInternalMutation,
+	customCtx(triggers.wrapDB),
+);
+
+export const action = customAction(
+	rawAction,
+	customCtx(async (ctx) => ({ user: await getActionUser(ctx) })),
+);
+
+export const protectedAction = customAction(
+	rawAction,
+	customCtx(async (ctx) => {
+		const user = await getActionUser(ctx);
+		if (!user) throw new AuthError("Authentication required");
+		return { user };
+	}),
+);
