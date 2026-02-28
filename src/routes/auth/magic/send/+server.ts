@@ -44,9 +44,9 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	try {
-		await workos.userManagement.sendMagicAuthCode({ email });
+		const magicAuth = await workos.userManagement.createMagicAuth({ email });
 		sendCooldownByEmail.set(email, now);
-		return json({ success: true });
+		return json({ success: true, expiresAt: magicAuth.expiresAt });
 	} catch (error) {
 		console.error('[Auth Magic Send] Failed to send code:', error);
 		return json(
@@ -55,4 +55,3 @@ export const POST: RequestHandler = async ({ request }) => {
 		);
 	}
 };
-
