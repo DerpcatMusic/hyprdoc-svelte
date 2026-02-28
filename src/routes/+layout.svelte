@@ -4,6 +4,7 @@
   import favicon from "$lib/assets/favicon.svg";
   import "virtual:uno.css";
   import "../app.css";
+  import "$lib/styles/editor.css";
   import { ModeWatcher } from "mode-watcher";
   import { Toaster } from "svelte-sonner";
   import LiquidGlassFilters from "$lib/components/ui/LiquidGlassFilters.svelte";

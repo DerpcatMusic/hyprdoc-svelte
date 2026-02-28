@@ -1,49 +1,45 @@
-import { internalMutation } from "../lib/core";
-import { v } from "convex/values";
-import { auditMetadataValidator } from "../domains/audit";
+import { zInternalMutation, z, zid } from "../lib/core";
+import { auditMetadataSchema } from "../domains/audit";
+import { generateAuditHash } from "../lib/crypto";
 
-export const log = internalMutation({
+export const log = zInternalMutation({
   args: {
-    workosId: v.optional(v.id("users")),
-    memberId: v.optional(v.id("documentMembers")),
-    actorType: v.union(
-      v.literal("user"),
-      v.literal("system"),
-      v.literal("member")
-    ),
-
-    documentId: v.optional(v.id("documents")),
-
-    resourceType: v.union(
-      v.literal("document"),
-      v.literal("template"),
-      v.literal("user")
-    ),
-    resourceId: v.string(),
-
-    action: v.string(),
-    level: v.union(
-      v.literal("info"),
-      v.literal("warn"),
-      v.literal("error"),
-      v.literal("security")
-    ),
-
-    ipAddress: v.optional(v.string()),
-    userAgent: v.optional(v.string()),
-    sessionId: v.optional(v.string()),
-    
-    metadata: auditMetadataValidator,
+    workosId: zid("users").optional(),
+    memberId: zid("documentMembers").optional(),
+    actorType: z.enum(["user", "system", "member"]),
+    documentId: zid("documents").optional(),
+    resourceType: z.enum(["document", "template", "user"]),
+    resourceId: z.string(),
+    action: z.string(),
+    level: z.enum(["info", "warn", "error", "security"]),
+    ipAddress: z.string().optional(),
+    userAgent: z.string().optional(),
+    sessionId: z.string().optional(),
+    metadata: auditMetadataSchema,
   },
   handler: async (ctx, args) => {
-    // Generate a simple hash for entryHash as required by schema
-    // In production this might be a cryptographic hash of the content
-    const entryHash = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const timestamp = Date.now();
+    const previousEntry = await ctx.db
+      .query("auditLogs")
+      .withIndex("by_timestamp")
+      .order("desc")
+      .first();
+    const previousHash = previousEntry?.entryHash ?? null;
+    const entryHash = await generateAuditHash(
+      {
+        action: args.action,
+        timestamp,
+        resourceId: args.resourceId,
+        metadata: args.metadata,
+      },
+      previousHash,
+    );
 
     await ctx.db.insert("auditLogs", {
       ...args,
-      timestamp: Date.now(),
-      entryHash, 
+      timestamp,
+      previousHash: previousHash ?? undefined,
+      entryHash,
     });
   },
 });

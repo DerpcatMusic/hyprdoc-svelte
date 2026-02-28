@@ -97,7 +97,7 @@
       role="textbox"
       aria-label={label}
       tabindex="0"
-      class="h-6 min-w-10 px-1 flex items-center justify-center rounded-md border border-border/40 bg-muted/30 cursor-text select-none font-mono text-xs tabular-nums transition-colors hover:border-border/80"
+      class="h-6 min-w-10 px-1 flex items-center justify-center rounded-md border border-border bg-muted cursor-text select-none font-mono text-xs tabular-nums transition-colors hover:border-border-foreground"
       ondblclick={handleDoubleClick}
       onkeydown={(e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {

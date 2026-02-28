@@ -6,6 +6,10 @@
   import { Input } from "$lib/components/ui/input";
   import * as Popover from "$lib/components/ui/popover";
   import * as Tabs from "$lib/components/ui/tabs";
+  import {
+    UI_COLOR_PICKER_PRESETS,
+    HYPR_DEFAULT_TEXT_COLOR,
+  } from "$lib/styles/ui-palette";
   import { cn } from "$lib/utils";
 
   extend([namesPlugin]);
@@ -37,26 +41,7 @@
     }
   });
 
-  const presets = [
-    "#000000",
-    "#ffffff",
-    "#ef4444",
-    "#f97316",
-    "#f59e0b",
-    "#84cc16",
-    "#22c55e",
-    "#10b981",
-    "#06b6d4",
-    "#0ea5e9",
-    "#3b82f6",
-    "#6366f1",
-    "#8b5cf6",
-    "#d946ef",
-    "#f43f5e",
-    "#808080",
-    "#525252",
-    "#171717",
-  ];
+  const presets = UI_COLOR_PICKER_PRESETS;
 
   function handleChange(newColor: string) {
     internalColor = newColor;
@@ -143,18 +128,18 @@
 
       <Tabs.Content value="presets" class="mt-0">
         <div class="grid grid-cols-6 gap-2">
-          {#each presets as color}
+          {#each presets as preset}
             <button
               type="button"
-              aria-label="Color {color}"
+              aria-label={"Color " + preset.name}
               class={cn(
 								'h-8 w-8 rounded-md border border-border/50 shadow-sm transition-transform hover:scale-105 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 active:scale-95',
-								value === color && 'border-transparent ring-2 ring-ring ring-offset-1'
+								value === preset.color && 'border-transparent ring-2 ring-ring ring-offset-1'
 							)}
-              style="background-color: {color}"
+              style="background-color: {preset.color}"
               onclick={() => {
-								handleChange(color);
-								onValueChangeEnd?.(color);
+								handleChange(preset.color);
+								onValueChangeEnd?.(preset.color);
 							}}
             ></button>
           {/each}
@@ -170,7 +155,7 @@
           <Input
             value={internalColor}
             oninput={handleHexInput}
-            placeholder="#000000"
+            placeholder={HYPR_DEFAULT_TEXT_COLOR}
             class="h-8 font-mono text-xs"
           />
         </div>

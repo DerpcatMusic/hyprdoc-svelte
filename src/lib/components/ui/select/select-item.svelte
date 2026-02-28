@@ -4,7 +4,7 @@
 
   let {
     children: children_prop,
-    class: className,
+    class: className = undefined,
     value,
     label,
     ref = $bindable(null),
@@ -17,7 +17,7 @@
   {value}
   {label}
   class={cn(
-		"relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+		"relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-surface-3 focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
 		className
 	)}
   {...restProps}

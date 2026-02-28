@@ -70,7 +70,7 @@
           </div>
           <h2 class="font-black font-display text-6xl text-foreground uppercase tracking-tight leading-[0.95]">
             Platform <br />
-            <span class="text-primary">Differential.</span>
+            <span class="text-lime-text">Differential.</span>
           </h2>
           <p class="text-lg text-muted-foreground font-medium border-l-2 border-primary/30 pl-8 leading-relaxed">
             Don't just sign PDFs. <span class="text-foreground font-bold">Compute them.</span> <br/>
@@ -112,14 +112,14 @@
               <p class="text-muted-foreground font-medium text-sm leading-relaxed">{item.legacy}</p>
             </div>
 
-            <div class="md:col-span-4 flex flex-col justify-center bg-primary/5 rounded-2xl p-5 border border-primary/10 shadow-sm relative overflow-hidden group-hover:bg-primary/10 transition-colors">
+            <div class="md:col-span-4 flex flex-col justify-center bg-primary rounded-2xl p-5 border border-primary shadow-sm relative overflow-hidden transition-colors">
               <div class="flex items-center gap-2 mb-1">
-                <Check size={10} class="text-primary" stroke-width={4} />
-                <span class="text-[9px] font-bold text-primary uppercase tracking-widest italic">Sovereign Layer</span>
+                <Check size={10} class="text-primary-foreground" stroke-width={4} />
+                <span class="text-[9px] font-bold text-primary-foreground uppercase tracking-widest italic">Sovereign Layer</span>
               </div>
-              <p class="text-foreground font-bold text-base italic tracking-tight">{item.hyprdoc}</p>
-              <div class="h-1 w-full bg-primary/10 rounded-full mt-3 overflow-hidden">
-                 <div class="h-full bg-primary/40 w-full -translate-x-1/2 animate-pulse"></div>
+              <p class="text-primary-foreground font-bold text-base italic tracking-tight">{item.hyprdoc}</p>
+              <div class="h-1 w-full bg-primary-foreground/20 rounded-full mt-3 overflow-hidden">
+                 <div class="h-full bg-primary-foreground/40 w-full -translate-x-1/2 animate-pulse"></div>
               </div>
             </div>
           </div>

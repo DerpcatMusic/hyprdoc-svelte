@@ -41,10 +41,43 @@
     }
   );
 
-  // Close when mouse leaves - HoverCard handles its own content leave, 
-  // but we might need a timeout or a leave listener for the trigger area.
-  // Actually, standard HoverCard behavior is to open on trigger hover.
-  // Since we use a virtual trigger, we just need to ensure isOpen is managed.
+  // Close hover card when leaving glossary terms (with small delay for UX)
+  let closeTimeout: ReturnType<typeof setTimeout> | null = null;
+  
+  useEventListener(
+    () => document,
+    "mouseout",
+    (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const relatedTarget = e.relatedTarget as HTMLElement | null;
+      
+      if (target.classList.contains("glossary-term")) {
+        // If moving to another glossary term or the hover card content, don't close
+        if (relatedTarget?.classList.contains("glossary-term") ||
+            relatedTarget?.closest("[data-radix-hover-card-content]")) {
+          return;
+        }
+        
+        // Small delay before closing to allow moving to hover card
+        closeTimeout = setTimeout(() => {
+          isOpen = false;
+        }, 150);
+      }
+    }
+  );
+
+  // Cancel close if entering hover card content
+  useEventListener(
+    () => document,
+    "mouseover",
+    (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-radix-hover-card-content]") && closeTimeout) {
+        clearTimeout(closeTimeout);
+        closeTimeout = null;
+      }
+    }
+  );
 
 </script>
 

@@ -1,62 +1,38 @@
-import { v } from "convex/values";
-import { query } from "@/convex/_generated/server";
+import { zQuery, z } from "../lib/core";
 import {
   getUserTier,
   isSubscriptionActive,
   userHasFeature,
-} from "@/convex/lib/subscription";
-import { getTier } from "@/convex/lib/tiers";
+} from "../lib/subscription";
+import { getTier } from "../lib/tiers";
 
-const subscriptionStatusValidator = v.union(
-  v.literal("active"),
-  v.literal("canceled"),
-  v.literal("past_due"),
-  v.literal("trialing"),
-  v.literal("incomplete"),
-  v.literal("none")
-);
+const SubscriptionStatusSchema = z.enum([
+  "active",
+  "canceled",
+  "past_due",
+  "trialing",
+  "incomplete",
+  "none"
+]);
 
-const tierValidator = v.union(
-  v.literal("free"),
-  v.literal("pro"),
-  v.literal("enterprise"),
-  v.literal("custom")
-);
+const TierSchema = z.enum([
+  "free",
+  "pro",
+  "enterprise",
+  "custom"
+]);
 
 /**
  * Get current subscription status for the authenticated user.
  */
-export const getSubscriptionStatus = query({
+export const getSubscriptionStatus = zQuery({
   args: {},
-  returns: v.union(
-    v.object({
-      tier: tierValidator,
-      tierName: v.string(),
-      status: subscriptionStatusValidator,
-      expiresAt: v.optional(v.number()),
-      isPaid: v.boolean(),
-      isActive: v.boolean(),
-      polarCustomerId: v.optional(v.string()),
-      features: v.object({
-        realtimeCollaboration: v.boolean(),
-        prioritySupport: v.boolean(),
-        customBranding: v.boolean(),
-        apiAccess: v.boolean(),
-      }),
-      isPro: v.boolean(),
-    }),
-    v.null()
-  ),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    if (!ctx.user) {
       return null;
     }
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_workos_id", (q) => q.eq("workosId", identity.subject))
-      .unique();
+    const user = await ctx.db.get(ctx.user._id);
 
     if (!user) {
       return null;
@@ -84,19 +60,14 @@ export const getSubscriptionStatus = query({
 /**
  * Check if user has an active paid subscription (any tier above free).
  */
-export const isPro = query({
+export const isPro = zQuery({
   args: {},
-  returns: v.boolean(),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    if (!ctx.user) {
       return false;
     }
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_workos_id", (q) => q.eq("workosId", identity.subject))
-      .unique();
+    const user = await ctx.db.get(ctx.user._id);
 
     if (!user) {
       return false;
@@ -110,19 +81,14 @@ export const isPro = query({
 /**
  * Check if user has access to real-time collaboration.
  */
-export const canUseRealtimeCollaboration = query({
+export const canUseRealtimeCollaboration = zQuery({
   args: {},
-  returns: v.boolean(),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    if (!ctx.user) {
       return false;
     }
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_workos_id", (q) => q.eq("workosId", identity.subject))
-      .unique();
+    const user = await ctx.db.get(ctx.user._id);
 
     if (!user) {
       return false;

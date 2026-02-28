@@ -18,7 +18,6 @@ import { Link } from "@tiptap/extension-link";
 import { Underline } from "@tiptap/extension-underline";
 import { Subscript } from "@tiptap/extension-subscript";
 import { Superscript } from "@tiptap/extension-superscript";
-import { BubbleMenu } from "@tiptap/extension-bubble-menu";
 import { UniqueID } from "@tiptap/extension-unique-id";
 
 // Code block with syntax highlighting
@@ -41,14 +40,10 @@ import "katex/dist/katex.min.css";
 // Interactive elements
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
 import { Emoji } from "@tiptap/extension-emoji";
-import { Mention } from "@tiptap/extension-mention";
 
 // Functionality extensions
-import { DragHandle } from "@tiptap/extension-drag-handle";
 import { FileHandler } from "@tiptap/extension-file-handler";
-import { FloatingMenu } from "@tiptap/extension-floating-menu";
 import { Focus } from "@tiptap/extension-focus";
-import { TableOfContents } from "@tiptap/extension-table-of-contents";
 
 // Custom extensions
 import { FontSize } from "$lib/components/editor/extensions/FontSize";
@@ -57,13 +52,35 @@ import { CollabCursorExtension } from "$lib/components/editor/extensions/collab-
 import { SlashCommand } from "$lib/components/editor/slash-command/extension";
 import { GlossaryExtension } from "$lib/components/editor/extensions/GlossaryExtension";
 import { GlobalVariableNode } from "$lib/components/editor/extensions/GlobalVariableNode";
-
+import { TrackChangesExtension } from "$lib/components/editor/extensions/track-changes";
+import { CommentMark } from "$lib/components/editor/extensions/CommentMark";
+import { TabToVariable, type VariableDefinition } from "$lib/components/editor/extensions/TabToVariable";
+import { HyprDocBlock } from "$lib/editor/extensions/HyprDocBlock";
 
 export interface ExtensionFactoryOptions {
   placeholder?: string;
   enableFileHandler?: boolean;
   enableMathematics?: boolean;
   currentUserId?: string;
+  /** Variables from database for Tab-to-Variable autocomplete */
+  variables?: VariableDefinition[];
+  // Track Changes options
+  trackChanges?: {
+    enabled?: boolean;
+    authorId?: string;
+    authorName?: string;
+    authorColor?: string;
+    onChangeCreated?: (change: {
+      changeType: "insertion" | "deletion" | "replacement";
+      changeId: string;
+      originalContent?: string;
+      newContent?: string;
+      position: number;
+      authorName: string;
+      authorColor: string;
+    }) => void;
+    onStatusChange?: (enabled: boolean) => void;
+  };
 }
 
 const lowlight = createLowlight(common);
@@ -75,7 +92,8 @@ export function createEditorExtensions(
     placeholder = 'Start typing or press "/" for commands...', 
     enableFileHandler = true,
     enableMathematics = true,
-    currentUserId = ""
+    currentUserId = "",
+    trackChanges = {}
   } = options;
 
   return deduplicateExtensions([
@@ -85,6 +103,7 @@ export function createEditorExtensions(
         color: 'var(--primary)',
         width: 2,
       },
+      link: false, // We configure Link separately below
     }),
     
     CodeBlockLowlight.configure({
@@ -113,11 +132,22 @@ export function createEditorExtensions(
     }),
     TaskItem.configure({
       nested: true,
+      a11y: {
+        checkboxLabel: (_node: unknown, checked: boolean) => 
+          checked ? 'Task completed' : 'Task not completed',
+      },
     }),
 
     Image.configure({
       inline: true,
       allowBase64: true,
+      resize: {
+        enabled: true,
+        directions: ['top-right', 'bottom-right', 'bottom-left', 'top-left'],
+        minWidth: 50,
+        minHeight: 50,
+        alwaysPreserveAspectRatio: true,
+      },
     }),
     Youtube.configure({
       nocookie: true,
@@ -136,12 +166,6 @@ export function createEditorExtensions(
     Emoji.configure({
       enableEmoticons: true,
     }),
-    Mention.configure({
-      suggestion: {
-        char: '@',
-        items: ({ query }) => [],
-      },
-    }),
 
     TextAlign.configure({
       types: ["heading", "paragraph"],
@@ -151,6 +175,16 @@ export function createEditorExtensions(
     BackgroundColor,
     Highlight.configure({ 
       multicolor: true 
+    }),
+    Underline,
+    Link.configure({
+      openOnClick: false,
+      autolink: true,
+      linkOnPaste: true,
+      HTMLAttributes: {
+        rel: 'noopener noreferrer',
+        target: '_blank',
+      },
     }),
     Subscript,
     Superscript,
@@ -172,6 +206,8 @@ export function createEditorExtensions(
       placeholder,
       emptyEditorClass: 'is-editor-empty',
       emptyNodeClass: 'is-empty',
+      showOnlyWhenEditable: true,
+      showOnlyCurrent: true,
     }),
     CharacterCount,
     Typography,
@@ -210,8 +246,6 @@ export function createEditorExtensions(
       })
     ] : []),
 
-    DragHandle,
-    TableOfContents,
     SlashCommand,
 
     CollabCursorExtension.configure({
@@ -222,6 +256,19 @@ export function createEditorExtensions(
       terms: [],
     }),
     GlobalVariableNode,
+    TrackChangesExtension.configure({
+      enabled: trackChanges.enabled ?? false,
+      authorId: trackChanges.authorId,
+      authorName: trackChanges.authorName ?? "User",
+      authorColor: trackChanges.authorColor ?? "#6366f1",
+      onChangeCreated: trackChanges.onChangeCreated,
+      onStatusChange: trackChanges.onStatusChange,
+    }),
+    CommentMark,
+    HyprDocBlock,
+    TabToVariable.configure({
+      variables: options.variables ?? [],
+    }),
   ]);
 }
 

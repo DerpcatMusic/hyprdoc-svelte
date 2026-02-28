@@ -1,17 +1,16 @@
 // convex/glossary/mutations.ts
-import { v } from "convex/values";
-import { mutation } from "@/convex/_generated/server";
+import { zMutation, zProtectedMutation, z, zid } from "../lib/core";
 
 // Helper mutation to batch insert
-export const insertBatch = mutation({
+export const insertBatch = zMutation({
   args: {
-    terms: v.array(
-      v.object({
-        term: v.string(),
-        termLower: v.string(),
-        definition: v.string(),
-        category: v.string(),
-        source: v.string(),
+    terms: z.array(
+      z.object({
+        term: z.string(),
+        termLower: z.string().optional(),
+        definition: z.string(),
+        category: z.string(),
+        source: z.string(),
       })
     ),
   },
@@ -25,18 +24,13 @@ export const insertBatch = mutation({
   },
 });
 
-export const addTerm = mutation({
+export const addTerm = zProtectedMutation({
   args: {
-    term: v.string(),
-    definition: v.string(),
-    category: v.string(),
+    term: z.string(),
+    definition: z.string(),
+    category: z.string(),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.auth.getUserIdentity();
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
-
     // Check for duplicate
     const existing = await ctx.db
       .query("glossaryTerms")
@@ -47,18 +41,13 @@ export const addTerm = mutation({
       throw new Error("Term already exists");
     }
 
-    const workosId = await ctx.db
-      .query("users")
-      .withIndex("by_workos_id", (q) => q.eq("workosId", user.subject))
-      .first();
-
     await ctx.db.insert("glossaryTerms", {
       term: args.term,
       termLower: args.term.toLowerCase(),
       definition: args.definition,
       category: args.category,
       source: "User",
-      workosId: workosId?._id,
+      workosId: ctx.user._id,
     });
   },
 });
@@ -66,18 +55,13 @@ export const addTerm = mutation({
 /**
  * Update an existing glossary term
  */
-export const updateTerm = mutation({
+export const updateTerm = zProtectedMutation({
   args: {
-    id: v.id("glossaryTerms"),
-    term: v.string(),
-    definition: v.string(),
+    id: zid("glossaryTerms"),
+    term: z.string(),
+    definition: z.string(),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.auth.getUserIdentity();
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
-
     const existingTerm = await ctx.db.get(args.id);
     if (!existingTerm) {
       throw new Error("Term not found");
@@ -97,24 +81,18 @@ export const updateTerm = mutation({
 /**
  * Delete a glossary term
  */
-export const deleteTerm = mutation({
+export const deleteTerm = zProtectedMutation({
   args: {
-    id: v.id("glossaryTerms"),
+    id: zid("glossaryTerms"),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.auth.getUserIdentity();
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
-
     const existingTerm = await ctx.db.get(args.id);
     if (!existingTerm) {
       throw new Error("Term not found");
     }
 
     // Optional: Check ownership
-    // const dbUser = await ctx.db.query("users").withIndex("by_workos_id", q => q.eq("workosId", user.subject)).first();
-    // if (existingTerm.workosId && existingTerm.workosId !== dbUser?._id) throw new Error("Unauthorized");
+    // if (existingTerm.workosId && existingTerm.workosId !== ctx.user._id) throw new Error("Unauthorized");
 
     await ctx.db.delete(args.id);
   },

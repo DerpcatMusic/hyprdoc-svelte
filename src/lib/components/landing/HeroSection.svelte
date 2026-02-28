@@ -39,7 +39,7 @@
     <!-- Main Title: Massive & Bold -->
     <h1 class="reveal font-display font-black text-6xl text-foreground tracking-tight sm:text-7xl md:text-8xl lg:text-9xl leading-[0.9] text-center w-full">
       Documents that<br />
-      <span class="text-primary selection:bg-black selection:text-white">do the work.</span>
+      <span class="text-lime-text selection:bg-primary selection:text-primary-foreground">do the work.</span>
     </h1>
 
     <!-- Subtitle: Simple & Direct -->
@@ -52,7 +52,7 @@
     <div class="reveal mt-8 flex flex-col items-center gap-4 sm:flex-row">
       <button
         onclick={() => nav.toggleAuth(true)}
-        class="group relative overflow-hidden rounded-full bg-[#9FE870] px-12 py-6 font-black text-2xl text-black transition-all hover:scale-105 active:scale-95 shadow-[0_8px_0_rgb(0,0,0,0.1)] active:shadow-none active:translate-y-[4px]"
+        class="group relative overflow-hidden rounded-full bg-primary px-12 py-6 font-black text-2xl text-primary-foreground transition-all hover:scale-105 active:scale-95 shadow-[0_8px_0_rgb(0,0,0,0.1)] active:shadow-none active:translate-y-[4px]"
       >
         <span>GET STARTED</span>
       </button>

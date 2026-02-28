@@ -48,22 +48,22 @@
     },
     pending_signatures: {
       label: "Awaiting",
-      className: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+      className: "bg-status-info-soft text-status-info",
       iconClass: "i-lucide-clock",
     },
     completed: {
       label: "Completed",
-      className: "bg-green-500/10 text-green-600 dark:text-green-400",
+      className: "bg-status-success-soft text-status-success",
       iconClass: "i-lucide-check-circle-2",
     },
     expired: {
       label: "Expired",
-      className: "bg-amber-500/10 text-amber-600",
+      className: "bg-status-warning-soft text-status-warning",
       iconClass: "i-lucide-clock",
     },
     voided: {
       label: "Voided",
-      className: "bg-red-500/10 text-red-600 line-through",
+      className: "bg-status-danger-soft text-status-danger line-through",
       iconClass: "i-lucide-x-circle",
     },
   };
@@ -83,11 +83,11 @@
   </div>
 {:else}
   <div
-    class="overflow-hidden rounded-2xl border border-border/60 bg-card/50 shadow-sm backdrop-blur-sm"
+    class="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
   >
     <table class="w-full border-collapse">
       <thead>
-        <tr class="border-border/40 border-b bg-muted/20">
+        <tr class="border-b border-border bg-muted">
           <th
             class="py-4 pr-4 pl-6 text-left font-bold text-[10px] text-muted-foreground uppercase tracking-widest"
           >
@@ -120,14 +120,14 @@
           </th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-border/20">
+      <tbody class="divide-y divide-border/40">
         {#each envelopes as envelope (envelope._id)}
           {@const signers = envelope.signers || []}
           {@const signedCount = signers.filter((s) => s.status === 'signed').length}
           {@const progress = signers.length > 0 ? (signedCount / signers.length) * 100 : 0}
           {@const config = statusConfig[envelope.status as EnvelopeStatus] || statusConfig.draft}
           <tr
-            class="group cursor-pointer transition-all hover:bg-primary/[0.02]"
+            class="group cursor-pointer transition-all hover:bg-muted"
             onclick={() => handleView(envelope._id)}
           >
             <!-- Title -->
@@ -140,7 +140,7 @@
                 </span>
                 {#if envelope.instanceNumber}
                   <span
-                    class="mt-0.5 font-mono text-[10px] text-muted-foreground uppercase tracking-tighter opacity-70"
+                    class="mt-0.5 font-mono text-[10px] text-muted-foreground uppercase tracking-tighter"
                   >
                     #{envelope.instanceNumber}
                   </span>
@@ -170,8 +170,8 @@
                   {#each signers.slice(0, 3) as signer (signer._id)}
                     <div
                       class={cn(
-												'h-7 w-7 flex items-center justify-center rounded-full border-2 border-background font-bold text-[9px]',
-												signer.status === 'signed' && 'ring-2 ring-green-500/50'
+											'h-7 w-7 flex items-center justify-center rounded-full border-2 border-background font-bold text-[9px]',
+												signer.status === 'signed' && 'ring-2 ring-status-success'
 											)}
                       style="background-color: {signer.color}20; color: {signer.color}; border-color: {signer.color}"
                     >
@@ -197,7 +197,7 @@
                     <div
                       class={cn(
 												'h-full rounded-full transition-all duration-300',
-												signedCount === signers.length ? 'bg-green-500' : 'bg-blue-500'
+												signedCount === signers.length ? 'bg-status-success' : 'bg-status-info'
 											)}
                       style="width: {progress}%"
                     ></div>

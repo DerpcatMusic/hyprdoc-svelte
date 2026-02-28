@@ -2,7 +2,7 @@
   import { DropdownMenu as BitsDropdownMenu } from "bits-ui";
   import { cn } from "$lib/utils";
 
-  const { class: className, children, inset = false, ...restProps } = $props();
+  const { class: className = undefined, children, inset = false, ...restProps } = $props();
 </script>
 
 <BitsDropdownMenu.GroupHeading

@@ -9,12 +9,11 @@
   import { onMount } from "svelte";
   import { preloadData } from "$app/navigation";
 
-  let activeSection = $state(0);
+  let activeSection = $state("hero");
 
-  function setActiveSection(index: number) {
-    activeSection = index;
-    const sections = ["hero", "features", "collab", "pricing"];
-    const element = document.getElementById(sections[index]);
+  function setActiveSection(id: string) {
+    activeSection = id;
+    const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: "smooth" });
     }

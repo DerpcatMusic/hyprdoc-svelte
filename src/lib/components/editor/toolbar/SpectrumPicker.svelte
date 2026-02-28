@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { colord, extend } from "colord";
+  import { colord } from "colord";
   import { onMount, untrack } from "svelte";
 
   interface Props {
@@ -16,6 +16,8 @@
   let saturation = $state(0);
   let brightness = $state(100);
   let isDragging = $state(false);
+  let saturationBrightnessRef = $state<HTMLDivElement | null>(null);
+  let hueTrackRef = $state<HTMLDivElement | null>(null);
 
   // Sync internal state when prop changes externally (and not dragging)
   $effect(() => {
@@ -71,7 +73,7 @@
   }
 
   function handleSbMove(e: MouseEvent | TouchEvent) {
-    const target = document.querySelector(".sb-box"); // Use a more stable selector strategy if needed
+    const target = saturationBrightnessRef;
     if (!target) return;
     const box = target.getBoundingClientRect();
 
@@ -107,7 +109,7 @@
   }
 
   function handleHueMove(e: MouseEvent | TouchEvent) {
-    const target = document.querySelector(".hue-track");
+    const target = hueTrackRef;
     if (!target) return;
     const track = target.getBoundingClientRect();
 
@@ -130,7 +132,8 @@
   <!-- Saturation/Brightness Box -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="sb-box relative w-full h-32 rounded-lg cursor-crosshair overflow-hidden border border-border/40 bg-white"
+    bind:this={saturationBrightnessRef}
+    class="relative w-full h-32 rounded-lg cursor-crosshair overflow-hidden border border-border/40 bg-white"
     style:background-color={hueColor}
     onmousedown={handleSbMouseDown}
   >
@@ -155,8 +158,9 @@
   <!-- Hue Slider -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="hue-track relative w-full h-3 rounded-full cursor-pointer border border-border/20"
-    style:background="linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)"
+    bind:this={hueTrackRef}
+    class="relative w-full h-3 rounded-full cursor-pointer border border-border/20"
+    style:background="var(--hue-spectrum)"
     onmousedown={handleHueMouseDown}
   >
     <!-- Handle -->
@@ -176,7 +180,7 @@
       type="text"
       value={currentColor.toUpperCase()}
       class="flex-1 h-8 rounded-md border border-input bg-transparent px-3 text-xs font-mono uppercase focus:outline-none focus:ring-1 focus:ring-ring"
-      onchange={(e: any) => {
+      onchange={(e: Event) => {
 				const val = (e.currentTarget as HTMLInputElement).value;
 				if (colord(val).isValid()) onChange(val);
 			}}

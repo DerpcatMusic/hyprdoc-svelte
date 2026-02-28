@@ -142,7 +142,7 @@
           class="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:shadow-md"
         >
           <div
-            class="flex items-center justify-between border-border border-b bg-muted/30 px-4 py-3"
+            class="flex items-center justify-between border-b border-border bg-muted px-4 py-3"
           >
             <h3
               class="flex items-center gap-2 font-bold text-[10px] text-muted-foreground uppercase tracking-widest"
@@ -159,7 +159,7 @@
 
           <!-- Preview -->
           <div
-            class="relative h-[400px] overflow-y-auto overflow-x-hidden bg-white dark:bg-zinc-950"
+            class="relative h-[400px] overflow-y-auto overflow-x-hidden bg-document"
           >
             <div
               class="origin-top-left"
@@ -167,7 +167,7 @@
             >
               <DocumentViewer
                 content={template.content}
-                mode="preview"
+                mode="view"
                 settings={{ ...(template.settings ?? {}), marginVertical: 16, marginHorizontal: 16 }}
                 showBadge={false}
                 class="border-none shadow-none ring-0"
@@ -177,7 +177,7 @@
 
           <!-- Footer with slot indicators -->
           <div
-            class="flex items-center justify-between border-border border-t bg-muted/20 px-4 py-3"
+            class="flex items-center justify-between border-t border-border bg-muted px-4 py-3"
           >
             <div class="flex -space-x-2">
               {#each slots.slice(0, 5) as slot (slot._id)}
@@ -189,7 +189,7 @@
               {/each}
             </div>
             <span
-              class="rounded-full border border-border bg-background/50 px-2 py-0.5 font-bold text-[9px] text-muted-foreground backdrop-blur-sm"
+              class="rounded-full border border-border bg-background px-2 py-0.5 font-bold text-[9px] text-muted-foreground"
             >
               {slots.length} SLOTS
             </span>
@@ -222,7 +222,7 @@
               <span class="font-medium text-muted-foreground text-xs"
                 >Completion Rate</span
               >
-              <span class="font-bold text-green-600 text-sm"
+              <span class="font-bold text-status-success text-sm"
                 >{stats.completionRate}%</span
               >
             </div>
@@ -235,18 +235,18 @@
     <div class="space-y-6 lg:col-span-7 xl:col-span-8">
       <!-- Stats Strip -->
       <div
-        class="flex flex-wrap items-center gap-3 rounded-2xl border border-border/40 bg-card/30 p-3 backdrop-blur-sm"
+        class="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-3"
       >
         {#each [
 					{ label: 'Total', value: stats.total, color: 'text-foreground', iconClass: 'i-lucide-file-text' },
-					{ label: 'Awaiting', value: stats.pending, color: 'text-blue-500', iconClass: 'i-lucide-clock', animate: true },
-					{ label: 'Completed', value: stats.completed, color: 'text-green-500', iconClass: 'i-lucide-check-circle-2' }
+					{ label: 'Awaiting', value: stats.pending, color: 'text-status-info', iconClass: 'i-lucide-clock', animate: true },
+					{ label: 'Completed', value: stats.completed, color: 'text-status-success', iconClass: 'i-lucide-check-circle-2' }
 				] as stat (stat.label)}
           <div
-            class="flex items-center gap-3 px-4 py-1 first:pl-2 last:border-border/20 last:border-l even:border-border/20 even:border-l"
+            class="flex items-center gap-3 px-4 py-1 first:pl-2 even:border-l even:border-border/40 last:border-l last:border-border/40"
           >
             <div
-              class={cn('rounded-lg bg-muted/40 p-1.5', stat.animate && 'animate-pulse')}
+              class={cn('rounded-lg bg-muted p-1.5', stat.animate && 'animate-pulse')}
             >
               <span
                 class={cn(stat.iconClass, 'w-3.5 h-3.5 opacity-70', stat.color)}
@@ -266,14 +266,14 @@
         {/each}
 
         <div class="ml-auto flex items-center gap-2 pr-2">
-          <div class="mx-2 h-6 w-px bg-border/20"></div>
+          <div class="mx-2 h-6 w-px bg-border/40"></div>
           <div class="flex flex-col items-end">
             <span
               class="font-bold text-[9px] text-muted-foreground uppercase tracking-tight"
             >
               Success
             </span>
-            <span class="font-bold text-green-500 text-sm"
+            <span class="font-bold text-status-success text-sm"
               >{stats.completionRate}%</span
             >
           </div>
@@ -288,12 +288,12 @@
           ></span>
           <Input
             placeholder="Search..."
-            class="h-10 border-border/40 bg-card/50 pl-10 shadow-sm transition-all focus:border-primary/50"
+            class="h-10 border-border bg-card pl-10 shadow-sm transition-all focus:border-primary/50"
             bind:value={searchQuery}
           />
         </div>
         <div
-          class="flex w-full rounded-lg border border-border bg-muted/50 p-1 sm:w-auto"
+          class="flex w-full rounded-lg border border-border bg-muted p-1 sm:w-auto"
         >
           {#each [
 						{ id: 'all', label: 'All' },

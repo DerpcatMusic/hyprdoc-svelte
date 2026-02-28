@@ -1,20 +1,22 @@
 /**
  * users/queries.ts - User Queries
  */
-import { v } from "convex/values";
-import { query, protectedQuery, internalQuery } from "@/convex/lib/core";
+import { zQuery, zProtectedQuery, zInternalQuery, z } from "../lib/core";
 
-export const me = query({
+export const me = zQuery({
 	args: {},
 	handler: async (ctx) => {
 		if (!ctx.user) return null;
+		// ctx.user already contains the user object from zQuery context if available,
+		// but let's re-fetch to ensure the latest state if needed, or just return ctx.user.
+		// Usually we re-fetch to get the full document from DB.
 		return ctx.db.get(ctx.user._id);
 	},
 });
 
-export const getByWorkosId = protectedQuery({
+export const getByWorkosId = zProtectedQuery({
 	args: {
-		workosId: v.string(),
+		workosId: z.string(),
 	},
 	handler: async (ctx, args) => {
 		return ctx.db
@@ -24,9 +26,9 @@ export const getByWorkosId = protectedQuery({
 	},
 });
 
-export const internalGetByWorkosId = internalQuery({
+export const internalGetByWorkosId = zInternalQuery({
 	args: {
-		workosId: v.string(),
+		workosId: z.string(),
 	},
 	handler: async (ctx, args) => {
 		return ctx.db

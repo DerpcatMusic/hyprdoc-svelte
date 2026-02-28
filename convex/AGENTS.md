@@ -1,113 +1,42 @@
-# HyprDoc Convex Backend Architecture
+# HyprDoc Convex Agent Guide
 
-> **Single Source of Truth**: All functions import from `lib/core.ts`. Period.
+## Core Rule
+Import server wrappers from `convex/lib/core.ts`. Do not bypass shared auth/RLS/trigger behavior.
 
-## The Pattern
+## Domain Invariants to Enforce Server-Side
+1. A sent envelope is a cloned snapshot of a template at a specific version.
+2. Template updates never mutate previously created envelopes.
+3. Sealed/sent envelopes are content-immutable.
+4. Every signing lifecycle transition is auditable and linked to version/hash metadata.
 
-```typescript
-// THE ONLY IMPORTS ANY FILE NEEDS:
-import { protectedMutation, protectedQuery, query, mutation } from "@/convex/lib/core";
-```
+## Required Write Flows
+1. `createTemplateDraft`
+2. `updateTemplateDraft`
+3. `createEnvelopeFromTemplate` (clone + `sourceTemplateId` + `instanceNumber`)
+4. `sealEnvelope` (freeze content + store canonical hash/version)
+5. `startSigningSession` (only for envelope records)
+6. `recordSignature` / `completeEnvelope`
 
-## Core Wrappers
+Do not mix template edits and envelope-signing writes in one mutation path.
 
-| Wrapper | Auth Required | RLS | Triggers | Use Case |
-|---------|---------------|-----|----------|----------|
-| `query` | ❌ | ✅ | ❌ | Public reads, optional user |
-| `mutation` | ❌ | ✅ | ✅ | Public writes, `users.store` |
-| `protectedQuery` | ✅ | ✅ | ❌ | User-specific reads |
-| `protectedMutation` | ✅ | ✅ | ✅ | **Most common** - user writes |
-| `internalQuery` | ❌ | ❌ | ❌ | Scheduled jobs, internal reads |
-| `internalMutation` | ❌ | ❌ | ✅ | Webhooks, system writes |
+## Data Rules
+1. `documents.kind` must be authoritative (`template` or `envelope`).
+2. Envelope rows must always include `sourceTemplateId`.
+3. Template `instanceCount` must update atomically with envelope creation.
+4. Envelope content updates must be rejected once locked/sealed.
+5. Party assignments and signer bindings must be validated by ID and ownership.
 
-## Features Built-In
+## Audit and Versioning Rules
+1. Persist a version snapshot before seal/send.
+2. Persist the sealed hash used for signature verification.
+3. Attach audit entries to document ID and version/hash checkpoint.
+4. Use append-only audit semantics for signing events.
 
-### 1. Authentication (WorkOS JWT)
-- `protectedQuery` and `protectedMutation` throw `AuthError` if no user
-- `query` and `mutation` provide `ctx.user` (nullable)
+## Implementation Rules
+1. Prefer `protectedQuery` / `protectedMutation` for user paths.
+2. Keep business logic in domain modules, not route handlers.
+3. Keep mutations idempotent where retries are possible.
+4. Avoid `any`; keep validators aligned with schema types.
 
-### 2. Row-Level Security (RLS)
-- Every table query is wrapped with access rules
-- Users can only read/write their own data
-- Public documents are readable by anyone
-
-### 3. Triggers (Auto-Audit)
-- Every mutation on `documents` and `users` tables is logged
-- Audit logs stored in `auditLogs` table automatically
-
-## Usage Examples
-
-### Protected Query (User-specific read)
-```typescript
-import { protectedQuery } from "@/convex/lib/core";
-import { v } from "convex/values";
-
-export const list = protectedQuery({
-  args: { status: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    // RLS already filters to user's docs
-    const docs = await ctx.db.query("documents").collect();
-    return docs;
-  },
-});
-```
-
-### Protected Mutation (User-specific write)
-```typescript
-import { protectedMutation, v } from "@/convex/lib/core";
-
-export const create = protectedMutation({
-  args: { title: v.string() },
-  handler: async (ctx, args) => {
-    // Triggers will auto-log this insert
-    return ctx.db.insert("documents", {
-      title: args.title,
-      ownerId: ctx.user._id,
-      // ...
-    });
-  },
-});
-```
-
-### Public Query (Optional auth)
-```typescript
-import { query, v } from "@/convex/lib/core";
-
-export const get = query({
-  args: { documentId: v.id("documents") },
-  handler: async (ctx, args) => {
-    // ctx.user may be null
-    // RLS allows public docs or user's own docs
-    return ctx.db.get(args.documentId);
-  },
-});
-```
-
-## File Structure
-
-```
-convex/
-├── lib/
-│   ├── core.ts      # THE POWERHOUSE - all wrappers
-│   └── triggers.ts  # Trigger registrations only
-├── documents/
-│   ├── mutations/
-│   │   ├── create.ts
-│   │   ├── delete.ts
-│   │   └── update.ts
-│   └── queries/
-│       ├── get.ts
-│       └── list.ts
-├── users/
-│   ├── mutations.ts
-│   └── queries.ts
-└── ...
-```
-
-## Rules
-
-1. **NEVER** import from `_generated/server` directly - use `lib/core.ts`
-2. **NEVER** call `ctx.auth.getUserIdentity()` - use `ctx.user`
-3. **NEVER** manually insert audit logs - triggers handle it
-4. **ALWAYS** use `protectedMutation` for user writes
-5. **ALWAYS** use `protectedQuery` for user reads
+## Validation
+Run `bun run validate` before merge.

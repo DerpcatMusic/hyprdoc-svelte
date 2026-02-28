@@ -9,7 +9,7 @@
 
   let {
     children,
-    child,
+    child: childSnippet,
     ref = $bindable(null),
     asChild = false,
     ...restProps
@@ -18,8 +18,8 @@
 
 <TooltipPrimitive.Trigger bind:ref data-slot="tooltip-trigger" {asChild} {...restProps}>
 	{#snippet child({ props })}
-		{#if asChild && child}
-			{@render child({ props: { ...props, ...restProps } })}
+		{#if asChild && childSnippet}
+			{@render childSnippet({ props: { ...props, ...restProps } })}
 		{:else}
 			<button {...props} {...restProps}>
 				{@render children?.()}

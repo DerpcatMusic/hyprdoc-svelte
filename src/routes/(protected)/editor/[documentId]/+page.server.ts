@@ -13,7 +13,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   return {
     documentId: params.documentId as Id<"documents">,
     workosId: locals.auth?.user?.id ?? null,
+    userName: locals.auth?.user?.firstName ?? locals.auth?.user?.email ?? "User",
     accessToken: locals.auth?.accessToken ?? null,
-    // Remove initialDocument - no more slow SSR fetch
   };
 };
+

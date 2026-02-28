@@ -6,7 +6,7 @@
   table-layout: fixed !important;
   width: 100% !important;
   border: 2px solid var(--border) !important;
-  background-color: white !important;
+  background-color: var(--card) !important;
 }
 
 .ProseMirror td,
@@ -17,7 +17,7 @@
   padding: 12px !important;
   position: relative !important;
   vertical-align: top !important;
-  color: black !important;
+  color: var(--foreground) !important;
 }
 
 .ProseMirror th {
@@ -88,11 +88,12 @@
   color: var(--primary) !important;
 }
 
-/* Placeholder fix */
+/* Placeholder fix - use float to respect content margins */
 .ProseMirror p.is-editor-empty:first-child::before {
   color: var(--muted-foreground) !important;
   content: attr(data-placeholder) !important;
-  position: absolute !important;
+  float: left !important;
+  height: 0 !important;
   pointer-events: none !important;
   opacity: 0.5 !important;
   white-space: nowrap !important;
@@ -115,3 +116,389 @@
 .ProseMirror blockquote {
   line-height: inherit !important;
 }
+
+/* AI Selection Highlight */
+.ai-selection-highlight {
+  background-color: var(--muted) !important;
+  border-radius: 2px !important;
+  border: 2px solid var(--primary) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMMENT HIGHLIGHT STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Base comment highlight */
+.comment-highlight {
+  background-color: var(--muted);
+  border-bottom: 2px solid var(--primary);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+/* Hover state - brighter when hovering */
+.comment-highlight:hover {
+  background-color: var(--secondary);
+}
+
+/* Active/selected state - when sidebar thread is focused */
+.comment-highlight[data-active="true"],
+.comment-highlight.comment-highlight--active {
+  background-color: var(--secondary);
+  outline: 2px solid var(--primary);
+}
+
+/* Resolved state - dimmed */
+.comment-highlight[data-resolved="true"] {
+  background-color: rgba(156, 163, 175, 0.15);
+  border-bottom-color: rgba(156, 163, 175, 0.4);
+  opacity: 0.6;
+}
+
+/* Collaborative Cursor Styles */
+.collab-cursor {
+  position: relative !important;
+  border-left: 2px solid var(--cursor-color, #6366f1) !important;
+  margin-left: -1px !important;
+  margin-right: -1px !important;
+  pointer-events: none !important;
+  word-break: normal !important;
+}
+
+.collab-cursor-label {
+  position: absolute !important;
+  top: -1.4em !important;
+  left: -1px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: white !important;
+  padding: 2px 6px !important;
+  border-radius: 4px 4px 4px 0 !important;
+  white-space: nowrap !important;
+  user-select: none !important;
+}
+
+.collab-selection {
+  background-color: color-mix(in srgb, var(--selection-color, #6366f1) 20%, transparent) !important;
+}
+
+/* Link Styles */
+.ProseMirror a {
+  color: var(--primary) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+  cursor: pointer !important;
+  transition: opacity 0.15s ease !important;
+}
+
+.ProseMirror a:hover {
+  opacity: 0.8 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESIZABLE IMAGE STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tiptap-resize-container {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+
+.tiptap-resize-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.tiptap-resize-container img {
+  display: block;
+  max-width: 100%;
+}
+
+.tiptap-resize-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--primary);
+  border: 2px solid var(--border);
+  border-radius: 2px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.tiptap-resize-container:hover .tiptap-resize-handle,
+.tiptap-resize-container.is-resizing .tiptap-resize-handle {
+  opacity: 1;
+}
+
+.tiptap-resize-handle[data-direction="top-left"] { 
+  top: -6px; 
+  left: -6px; 
+  cursor: nwse-resize; 
+}
+.tiptap-resize-handle[data-direction="top-right"] { 
+  top: -6px; 
+  right: -6px; 
+  cursor: nesw-resize; 
+}
+.tiptap-resize-handle[data-direction="bottom-left"] { 
+  bottom: -6px; 
+  left: -6px; 
+  cursor: nesw-resize; 
+}
+.tiptap-resize-handle[data-direction="bottom-right"] { 
+  bottom: -6px; 
+  right: -6px; 
+  cursor: nwse-resize; 
+}
+
+.tiptap-resize-container.is-resizing {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Size indicator during resize */
+.tiptap-resize-container.is-resizing::after {
+  content: attr(data-width) " × " attr(data-height);
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary);
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  font-family: ui-monospace, monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GRID OVERLAY STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.editor-grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+  background-image: 
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: var(--grid-size, 20px) var(--grid-size, 20px);
+  background-position: var(--grid-offset-x, 0) var(--grid-offset-y, 0);
+}
+
+.editor-grid-overlay.grid-dots {
+  background-image: radial-gradient(circle, var(--muted-foreground) 1px, transparent 1px);
+  background-size: var(--grid-size, 20px) var(--grid-size, 20px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ALIGNMENT GUIDE STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.alignment-guide {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.alignment-guide-horizontal {
+  height: 1px;
+  background: var(--primary);
+}
+
+.alignment-guide-horizontal::before,
+.alignment-guide-horizontal::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: var(--primary);
+  border-radius: 50%;
+  top: -2.5px;
+}
+
+.alignment-guide-horizontal::before { left: 0; }
+.alignment-guide-horizontal::after { right: 0; }
+
+.alignment-guide-vertical {
+  width: 1px;
+  background: var(--primary);
+}
+
+.alignment-guide-vertical::before,
+.alignment-guide-vertical::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: var(--primary);
+  border-radius: 50%;
+  left: -2.5px;
+}
+
+.alignment-guide-vertical::before { top: 0; }
+.alignment-guide-vertical::after { bottom: 0; }
+
+/* Center alignment guide (special styling) */
+.alignment-guide-center {
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    var(--primary) 20%, 
+    var(--primary) 80%, 
+    transparent 100%
+  );
+}
+
+/* Distance indicator pill */
+.alignment-distance {
+  position: absolute;
+  background: var(--primary);
+  color: white;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  pointer-events: none;
+  font-family: ui-monospace, monospace;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VISUAL RULER STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.editor-rulers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.ruler {
+  background: var(--muted);
+  position: absolute;
+}
+
+.ruler-horizontal {
+  top: 0;
+  left: 24px;
+  right: 0;
+  height: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ruler-vertical {
+  top: 24px;
+  left: 0;
+  width: 24px;
+  bottom: 0;
+  border-right: 1px solid var(--border);
+}
+
+.ruler-corner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  background: var(--muted);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ruler-mark {
+  position: absolute;
+  background: var(--muted-foreground);
+}
+
+.ruler-horizontal .ruler-mark {
+  width: 1px;
+  bottom: 0;
+  height: 4px;
+}
+
+.ruler-horizontal .ruler-mark.major {
+  height: 10px;
+  background: var(--foreground);
+}
+
+.ruler-vertical .ruler-mark {
+  height: 1px;
+  right: 0;
+  width: 4px;
+}
+
+.ruler-vertical .ruler-mark.major {
+  width: 10px;
+  background: var(--foreground);
+}
+
+.ruler-label {
+  position: absolute;
+  font-size: 8px;
+  font-family: ui-monospace, monospace;
+  color: var(--muted-foreground);
+  user-select: none;
+}
+
+.ruler-horizontal .ruler-label {
+  bottom: 12px;
+  transform: translateX(-50%);
+}
+
+.ruler-vertical .ruler-label {
+  right: 12px;
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: right center;
+}
+
+.ruler-margin-indicator {
+  position: absolute;
+  background: var(--primary);
+  opacity: 0.6;
+  cursor: ew-resize;
+  pointer-events: auto;
+  transition: opacity 0.15s;
+}
+
+.ruler-margin-indicator:hover {
+  opacity: 1;
+}
+
+.ruler-horizontal .ruler-margin-indicator {
+  width: 2px;
+  top: 0;
+  bottom: 0;
+}
+
+.ruler-vertical .ruler-margin-indicator {
+  height: 2px;
+  left: 0;
+  right: 0;
+}
+
+/* Selection highlight on ruler */
+.ruler-selection {
+  position: absolute;
+  background: var(--primary);
+  opacity: 0.2;
+}
+
+.ruler-horizontal .ruler-selection {
+  top: 0;
+  bottom: 0;
+}
+
+.ruler-vertical .ruler-selection {
+  left: 0;
+  right: 0;
+}
+

@@ -72,11 +72,11 @@
   });
 </script>
 
-<section id="pricing" bind:this={sectionRef} class="relative w-full px-6 py-32 bg-slate-50 dark:bg-black border-t border-border">
+<section id="pricing" bind:this={sectionRef} class="relative w-full px-6 py-32 bg-surface-1 border-t border-border">
   <div class="mx-auto max-w-7xl">
     <div class="mb-20 text-center">
       <h2 class="mb-6 font-display font-black text-5xl text-foreground tracking-tight md:text-7xl">
-        Transparent <span class="text-primary">Pricing.</span>
+        Transparent <span class="text-lime-text">Pricing.</span>
       </h2>
       <p class="mx-auto max-w-2xl font-bold text-xl text-muted-foreground">
         No hidden fees. No "Envelope Taxes". Just pay for what you use.
@@ -89,12 +89,12 @@
           class={cn(
             "pricing-card relative flex flex-col p-8 rounded-[2rem] transition-all",
             tier.highlight 
-              ? "bg-black text-white dark:bg-white dark:text-black shadow-2xl scale-105 z-10" 
-              : "bg-white dark:bg-[#111] border border-border"
+              ? "bg-foreground text-background shadow-2xl scale-105 z-10 border border-foreground" 
+              : "bg-surface-2 text-foreground border border-border"
           )}
         >
           {#if tier.highlight}
-             <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-black px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">
+             <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">
                Best Value
              </div>
           {/if}
@@ -111,7 +111,7 @@
           <div class="flex-1 space-y-4 mb-10">
             {#each tier.features as feature}
               <div class="flex items-start gap-3">
-                <div class={cn("mt-1 flex items-center justify-center rounded-full p-0.5", tier.highlight ? "bg-primary text-black" : "bg-primary/20 text-primary")}>
+                <div class={cn("mt-1 flex items-center justify-center rounded-full p-0.5", tier.highlight ? "bg-primary text-primary-foreground" : "bg-primary/20 text-lime-text dark:text-primary")}>
                   <Check size={12} strokeWidth={4} />
                 </div>
                 <span class="font-bold text-sm opacity-90">{feature}</span>
@@ -124,8 +124,8 @@
             class={cn(
               "w-full py-4 rounded-full font-black text-center text-sm uppercase tracking-wide transition-transform active:scale-95",
               tier.highlight
-                ? "bg-primary text-black hover:brightness-110"
-                : "bg-slate-100 dark:bg-zinc-800 text-foreground hover:bg-slate-200 dark:hover:bg-zinc-700"
+                ? "bg-primary text-primary-foreground hover:brightness-110"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
             )}
           >
             {tier.buttonText}

@@ -1,10 +1,6 @@
 <script lang="ts">
-  import { gsap } from "gsap";
   import { useEventListener } from "runed";
-  import { spring } from "svelte/motion";
   import { fade, scale } from "svelte/transition";
-  import { goto } from "$app/navigation";
-  import { page } from "$app/state";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { cn } from "$lib/utils";
@@ -29,7 +25,6 @@
   }: Props = $props();
 
   let inputRef = $state<HTMLInputElement | null>(null);
-  let searchContainerRef = $state<HTMLElement>();
   let isFocused = $state(false);
 
   const isExpanded = $derived(isFocused || searchQuery.length > 0);
@@ -78,26 +73,7 @@
     }
   });
 
-  // GSAP Search Expansion
-  $effect(() => {
-    if (!searchContainerRef) {
-      return;
-    }
-
-    if (isExpanded) {
-      gsap.to(searchContainerRef, {
-        maxWidth: "100%",
-        duration: 0.4,
-        ease: "expo.out",
-      });
-    } else {
-      gsap.to(searchContainerRef, {
-        maxWidth: "12rem", // 48
-        duration: 0.3,
-        ease: "power2.inOut",
-      });
-    }
-  });
+  // GSAP Search Expansion REMOVED - using Svelte-friendly approach or native CSS transitions
 
   function clearSearch() {
     searchQuery = "";
@@ -108,19 +84,19 @@
 <div class="z-40 flex w-full justify-center px-4 pt-8">
   <div
     class={cn(
-			"glass-blur shadow-premium relative flex h-16 items-center overflow-hidden rounded-full border border-border/60 p-1.5 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-glass",
-			isExpanded ? "w-full max-w-3xl bg-background/90" : "w-auto"
+			"relative flex h-16 items-center overflow-hidden rounded-full border border-border bg-card p-1.5 shadow-sm transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
+			isExpanded ? "w-full max-w-3xl" : "w-auto"
 		)}
   >
     <!-- Welcome Section -->
     {#if !isExpanded}
       <div
         transition:fade={{ duration: 200 }}
-        class="flex shrink-0 items-center border-border/20 border-r py-1 pr-6 pl-5"
+        class="flex shrink-0 items-center border-r border-border/40 py-1 pl-5 pr-6"
       >
         <div class="flex flex-col whitespace-nowrap">
           <span
-            class="font-bold text-[10px] text-muted-foreground uppercase leading-none tracking-widest text-opacity-70"
+            class="font-bold text-[10px] text-muted-foreground uppercase leading-none tracking-widest"
           >
             {currentDate}
           </span>
@@ -145,7 +121,7 @@
 							"group relative flex h-12 items-center gap-2 rounded-full px-4 transition-all active:scale-95 hover:bg-transparent",
 							statusFilter === f.id
 								? "text-primary-foreground hover:text-primary-foreground"
-								: "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
+								: "border-transparent text-muted-foreground hover:border-border/40 hover:bg-muted hover:text-foreground"
 						)}
           >
             <span class={cn(f.iconClass, "relative z-10 w-4.5 h-4.5")}></span>
@@ -154,7 +130,7 @@
             >
             {#if statusFilter === f.id}
               <div
-                class="absolute inset-x-1 inset-y-1 z-0 rounded-full bg-primary shadow-sm"
+                class="absolute inset-x-1 inset-y-1 z-0 rounded-full bg-primary border border-primary/50"
                 in:scale={{ duration: 300, start: 0.9 }}
               ></div>
             {/if}
@@ -165,11 +141,11 @@
 
     <!-- Search Container -->
     <div
-      bind:this={searchContainerRef}
       class={cn(
-				"relative flex h-12 items-center overflow-hidden transition-all duration-300",
+				"relative flex h-12 items-center overflow-hidden transition-all duration-500",
 				isExpanded ? "flex-1 px-4" : "w-48 pl-2"
 			)}
+      style={!isExpanded ? "max-width: 12rem" : "max-width: 100%"}
     >
       <div class="pointer-events-none absolute left-6 flex items-center"><span
         class={cn(
@@ -185,7 +161,7 @@
         onblur={() => isFocused = false}
         placeholder={isExpanded ? "Search for documents, templates, or recipients..." : "Search..."}
         class={cn(
-					"selection:bg-primary selection:text-primary-foreground h-11 w-full border-none bg-transparent pr-4 pl-12 font-medium text-sm outline-none transition-all placeholder:text-muted-foreground/40 hover:bg-black/5 dark:hover:bg-white/5 focus:bg-black/5 dark:focus:bg-white/5",
+					"selection:bg-primary selection:text-primary-foreground h-11 w-full border-none bg-transparent pr-4 pl-12 font-medium text-sm outline-none transition-all placeholder:text-muted-foreground/40 hover:bg-primary/5 focus:bg-primary/10",
 					isExpanded && "text-base"
 				)}
       />
@@ -194,7 +170,7 @@
           transition:scale={{ duration: 150 }}
           onclick={clearSearch}
           aria-label="Clear search"
-          class="absolute right-6 flex h-8 w-8 items-center justify-center rounded-full bg-background/50 text-muted-foreground shadow-sm transition-all hover:bg-background hover:text-foreground hover:scale-110"
+          class="absolute right-6 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-all hover:text-foreground hover:scale-110"
         >
           <span class="i-lucide-x w-4 h-4"></span>
         </button>

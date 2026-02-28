@@ -1,7 +1,6 @@
 <script lang="ts">
-  import DockNavigation from "./DockNavigation.svelte";
-  import { Button } from "$lib/components/ui/button";
-  import { ArrowRight, Menu } from "lucide-svelte";
+  import ThemeToggle from "./ThemeToggle.svelte";
+  import { ArrowRight } from "lucide-svelte";
   import { useNav } from "$lib/stores/nav-state.svelte";
 
   interface Props {
@@ -35,6 +34,7 @@
 
       <!-- Auth Actions -->
       <div class="flex items-center gap-3">
+        <ThemeToggle />
         <button 
           onclick={() => nav.toggleAuth(true)}
           class="hidden text-sm font-bold text-foreground/80 transition-colors hover:text-foreground md:block"
@@ -43,7 +43,7 @@
         </button>
         <button 
           onclick={() => nav.toggleAuth(true)}
-          class="group flex items-center gap-2 rounded-full bg-[#9FE870] px-5 py-2.5 text-sm font-black text-black transition-all hover:scale-105 active:scale-95"
+          class="group flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-black text-primary-foreground transition-all hover:scale-105 active:scale-95"
         >
           Get started
           <ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

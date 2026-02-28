@@ -1,17 +1,16 @@
 /**
  * documents/queries/internal.ts - Internal Queries
  */
-import { v } from "convex/values";
-import { internalQuery } from "../../lib/core";
+import { zInternalQuery, z } from "../../lib/core";
 
 /**
  * List templates for RAG search.
  */
-export const listTemplates = internalQuery({
+export const listTemplates = zInternalQuery({
 	args: {
-		genre: v.optional(v.string()),
-		category: v.optional(v.string()),
-		limit: v.optional(v.number()),
+		genre: z.string().optional(),
+		category: z.string().optional(),
+		limit: z.number().optional(),
 	},
 	handler: async (ctx, args) => {
 		let query = ctx.db

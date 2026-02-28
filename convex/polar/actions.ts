@@ -1,16 +1,15 @@
-import { v } from "convex/values";
-import { api } from "@/convex/_generated/api";
-import { action } from "@/convex/_generated/server";
-import { getPolarClient } from "@/convex/lib/polar";
+import { zAction, z } from "../lib/core";
+import { api } from "../_generated/api";
+import { getPolarClient } from "../lib/polar";
 
 /**
  * Action to manually sync a user's subscription from Polar.sh.
  * Useful when webhooks were missed or identifiers were out of sync.
  */
-export const syncSubscription = action({
+export const syncSubscription = zAction({
   args: {
-    email: v.string(),
-    workosId: v.string(),
+    email: z.string(),
+    workosId: z.string(),
   },
   handler: async (ctx, args) => {
     const accessToken = process.env.POLAR_ACCESS_TOKEN || "";

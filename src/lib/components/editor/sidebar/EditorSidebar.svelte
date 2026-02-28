@@ -5,6 +5,7 @@
     Box,
     Braces,
     ChevronLeft,
+    MessageCircle,
     Settings2,
     Sparkles,
   } from "lucide-svelte";
@@ -30,6 +31,7 @@
   import GlobalVariablesPanel from "./panels/GlobalVariablesPanel.svelte";
   import GlossaryPanel from "./panels/GlossaryPanel.svelte";
   import SettingsPanel from "./panels/SettingsPanel.svelte";
+  import CommentsPanel from "./panels/CommentsPanel.svelte";
   import SidebarNavIcon from "./SidebarNavIcon.svelte";
 
   // --- Tabs & State ---
@@ -37,6 +39,7 @@
     | "components"
     | "glossary"
     | "variables"
+    | "comments"
     | "settings"
     | "ai"
     | null;
@@ -66,6 +69,8 @@
         return GlossaryPanel;
       case "variables":
         return GlobalVariablesPanel;
+      case "comments":
+        return CommentsPanel;
       case "settings":
         return SettingsPanel;
       default:
@@ -83,6 +88,8 @@
         return "Glossary";
       case "variables":
         return "Variables";
+      case "comments":
+        return "Comments";
       case "settings":
         return "Settings";
       default:
@@ -91,20 +98,20 @@
   });
 </script>
 
-{#if !mode.isConsumer}
+{#if !mode.isSigning}
   <aside
     class={cn(
-		"z-20 flex min-h-0 flex-row overflow-hidden border-border bg-card transition-all duration-300 ease-in-out",
+		"z-[60] flex min-h-0 flex-row overflow-hidden border-border/70 bg-sidebar/95 backdrop-blur-xl transition-all duration-300 ease-in-out supports-[backdrop-filter]:bg-sidebar/80",
 		uiStore.corporateMode.current
 			? "h-full rounded-none border-0 border-r"
-			: "m-4 h-[calc(100%-2rem)] rounded-2xl border shadow-xl bg-card",
+			: "h-full rounded-none border-r shadow-[10px_0_24px_-18px_rgba(0,0,0,0.45)]",
 		isOpen ? "w-[22rem]" : "w-20"
 	)}
   >
     <!-- --- RAIL COLUMN --- -->
     <TooltipProvider delayDuration={0}>
       <div
-        class="flex w-20 shrink-0 flex-col items-center justify-between border-border/50 border-r bg-card/50 py-6"
+        class="flex w-20 shrink-0 flex-col items-center justify-between border-r border-border/40 bg-gradient-to-b from-sidebar via-sidebar to-muted/20 py-5"
       >
         <!-- Top: Branding & Tools -->
         <div class="flex flex-col items-center gap-4">
@@ -154,6 +161,13 @@
           variant="scientific"
           isActive={activeTab === 'variables'}
           onclick={() => toggleTab('variables')}
+        />
+        <SidebarNavIcon
+          icon={MessageCircle}
+          label="Comments"
+          variant="neutral"
+          isActive={activeTab === 'comments'}
+          onclick={() => toggleTab('comments')}
         />
       </div>
 
@@ -215,13 +229,16 @@
     {#if isOpen}
       <div
         transition:fly={{ x: -20, duration: 200, opacity: 0 }}
-        class="flex min-w-0 flex-1 flex-col bg-transparent"
+        class="flex min-w-0 flex-1 flex-col border-l border-border/60 bg-card/90 supports-[backdrop-filter]:bg-card/80"
       >
         <!-- Header -->
         <div
-          class="flex h-14 shrink-0 items-center justify-between border-border/40 border-b px-4"
+          class="flex h-14 shrink-0 items-center justify-between border-b border-border/50 bg-muted/20 px-4"
         >
-          <h2 class="font-semibold text-sm capitalize">{tabTitle}</h2>
+          <div class="flex flex-col">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Workspace</span>
+            <h2 class="font-semibold text-sm capitalize">{tabTitle}</h2>
+          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -233,9 +250,9 @@
         </div>
 
         <!-- Scrollable Content -->
-        <div
-          class="scrollbar-thin scrollbar-thumb-muted-foreground/20 flex-1 overflow-y-auto pb-20"
-        >
+      <div
+        class="flex-1 overflow-y-auto custom-scrollbar pb-20"
+      >
           {#if ActivePanel}
             <!-- Key block forces destroy/remount on tab switch for cleanup -->
             {#key activeTab}

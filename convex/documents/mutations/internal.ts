@@ -1,18 +1,16 @@
-import { v } from "convex/values";
-import { internalMutation } from "@/convex/_generated/server";
+import { zInternalMutation, z, zid } from "../../lib/core";
 
 /**
  * Update document with signed PDF storage IDs (internal only).
  * Called from triggerCompletion action after PDF generation.
  */
-export const updateWithSignedPdfs = internalMutation({
+export const updateWithSignedPdfs = zInternalMutation({
   args: {
-    documentId: v.id("documents"),
-    signedPdfStorageId: v.id("_storage"),
-    auditPdfStorageId: v.optional(v.id("_storage")),
-    completedHash: v.string(),
+    documentId: zid("documents"),
+    signedPdfStorageId: zid("_storage"),
+    auditPdfStorageId: zid("_storage").optional(),
+    completedHash: z.string(),
   },
-  returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.db.patch(args.documentId, {
       signedPdfStorageId: args.signedPdfStorageId,

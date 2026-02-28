@@ -11,7 +11,9 @@
 
 	const { client, accessToken, children }: Props = $props();
 
-	// Set context for convex-svelte hooks
+	// Set context for convex-svelte hooks - must be synchronous at init time
+	// Svelte warning about initial capture is expected - client won't change
+	// svelte-ignore state_referenced_locally
 	setConvexClientContext(client);
 
 	// Configure auth using SSR-hydrated token - NO network request needed!
@@ -26,3 +28,4 @@
 </script>
 
 {@render children?.()}
+

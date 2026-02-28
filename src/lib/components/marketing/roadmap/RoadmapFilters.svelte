@@ -7,7 +7,7 @@
 		onFilterChange: (filter: string) => void;
 	}
 
-	let { activeFilter, onFilterChange } = $props<Props>();
+	let { activeFilter, onFilterChange }: Props = $props();
 
 	const filters = [
 		{ id: 'all', label: 'All Items' },

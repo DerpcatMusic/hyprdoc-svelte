@@ -1,27 +1,25 @@
-import { mutation } from '../_generated/server';
-import { v } from 'convex/values';
+import { zMutation, z, zid } from '../lib/core';
+
+const RoadmapStatusSchema = z.enum(['planned', 'in_progress', 'completed']);
+const RoadmapPrioritySchema = z.enum(['p0_critical', 'p1_high', 'p2_medium']);
+const RoadmapCategorySchema = z.enum(['core_engine', 'integration', 'business_model', 'sdk']);
 
 /**
  * Create a new roadmap item
  */
-export const create = mutation({
+export const create = zMutation({
 	args: {
-		title: v.string(),
-		description: v.string(),
-		status: v.union(v.literal('planned'), v.literal('in_progress'), v.literal('completed')),
-		quarter: v.string(),
-		priority: v.union(v.literal('p0_critical'), v.literal('p1_high'), v.literal('p2_medium')),
-		category: v.union(
-			v.literal('core_engine'),
-			v.literal('integration'),
-			v.literal('business_model'),
-			v.literal('sdk')
-		),
-		competitorKill: v.optional(v.string()),
-		techStack: v.optional(v.string()),
-		valueProposition: v.optional(v.string()),
-		order: v.number(),
-		isPublic: v.boolean()
+		title: z.string(),
+		description: z.string(),
+		status: RoadmapStatusSchema,
+		quarter: z.string(),
+		priority: RoadmapPrioritySchema,
+		category: RoadmapCategorySchema,
+		competitorKill: z.string().optional(),
+		techStack: z.string().optional(),
+		valueProposition: z.string().optional(),
+		order: z.number(),
+		isPublic: z.boolean()
 	},
 	handler: async (ctx, args) => {
 		const now = Date.now();
@@ -36,31 +34,20 @@ export const create = mutation({
 /**
  * Update a roadmap item
  */
-export const update = mutation({
+export const update = zMutation({
 	args: {
-		id: v.id('roadmapItems'),
-		title: v.optional(v.string()),
-		description: v.optional(v.string()),
-		status: v.optional(
-			v.union(v.literal('planned'), v.literal('in_progress'), v.literal('completed'))
-		),
-		quarter: v.optional(v.string()),
-		priority: v.optional(
-			v.union(v.literal('p0_critical'), v.literal('p1_high'), v.literal('p2_medium'))
-		),
-		category: v.optional(
-			v.union(
-				v.literal('core_engine'),
-				v.literal('integration'),
-				v.literal('business_model'),
-				v.literal('sdk')
-			)
-		),
-		competitorKill: v.optional(v.string()),
-		techStack: v.optional(v.string()),
-		valueProposition: v.optional(v.string()),
-		order: v.optional(v.number()),
-		isPublic: v.optional(v.boolean())
+		id: zid('roadmapItems'),
+		title: z.string().optional(),
+		description: z.string().optional(),
+		status: RoadmapStatusSchema.optional(),
+		quarter: z.string().optional(),
+		priority: RoadmapPrioritySchema.optional(),
+		category: RoadmapCategorySchema.optional(),
+		competitorKill: z.string().optional(),
+		techStack: z.string().optional(),
+		valueProposition: z.string().optional(),
+		order: z.number().optional(),
+		isPublic: z.boolean().optional()
 	},
 	handler: async (ctx, args) => {
 		const { id, ...updates } = args;
@@ -69,13 +56,8 @@ export const update = mutation({
 			throw new Error('Roadmap item not found');
 		}
 
-		// Filter out undefined values
-		const cleanUpdates = Object.fromEntries(
-			Object.entries(updates).filter(([_, v]) => v !== undefined)
-		);
-
 		await ctx.db.patch(id, {
-			...cleanUpdates,
+			...updates,
 			updatedAt: Date.now()
 		});
 	}
@@ -84,8 +66,8 @@ export const update = mutation({
 /**
  * Delete a roadmap item
  */
-export const remove = mutation({
-	args: { id: v.id('roadmapItems') },
+export const remove = zMutation({
+	args: { id: zid('roadmapItems') },
 	handler: async (ctx, args) => {
 		await ctx.db.delete(args.id);
 	}
@@ -95,7 +77,7 @@ export const remove = mutation({
  * Seed the roadmap with the 10 kill-features
  * Run this once to populate initial data
  */
-export const seedRoadmap = mutation({
+export const seedRoadmap = zMutation({
 	args: {},
 	handler: async (ctx) => {
 		const now = Date.now();

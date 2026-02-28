@@ -14,43 +14,43 @@
       title: "Smart Payments",
       description: "Stripe integrated directly into the doc. Milestones releaes funds automatically.",
       icon: Zap,
-      bg: "bg-[#FFF4E5] dark:bg-[#2A1C00]", // Amber
-      text: "text-[#B36B00] dark:text-[#FFB347]"
+      bg: "bg-surface-2 dark:bg-card border border-border/50",
+      text: "text-lime-text dark:text-lime-400"
     },
     {
       title: "Logic & Visibility",
       description: "Show/hide sections based on signer inputs. Dynamic agreements.",
       icon: Box,
-      bg: "bg-[#E5F6FF] dark:bg-[#002A4D]", // Blue
-      text: "text-[#006699] dark:text-[#47B3FF]"
+      bg: "bg-surface-2 dark:bg-card border border-border/50",
+      text: "text-foreground"
     },
     {
       title: "Global Sync",
       description: "Google Docs style editing, but for structured legal data.",
       icon: Globe,
-      bg: "bg-[#E6FFFA] dark:bg-[#00332E]", // Teal
-      text: "text-[#008060] dark:text-[#47FFB3]"
+      bg: "bg-surface-2 dark:bg-card border border-border/50",
+      text: "text-lime-text dark:text-lime-400"
     },
     {
       title: "API Connectors",
       description: "Pull live data (CRM, Stock Prices) directly into contract variables.",
       icon: DatabaseZap,
-      bg: "bg-[#F3E5FF] dark:bg-[#220033]", // Purple
-      text: "text-[#6B00B3] dark:text-[#D147FF]"
+      bg: "bg-surface-2 dark:bg-card border border-border/50",
+      text: "text-foreground"
     },
     {
       title: "Deadline Triggers",
       description: "Auto-expire contracts or escalate alerts when dates pass.",
       icon: Activity,
-      bg: "bg-[#FFE5F2] dark:bg-[#33001A]", // Pink
-      text: "text-[#B30059] dark:text-[#FF4794]"
+      bg: "bg-surface-2 dark:bg-card border border-border/50",
+      text: "text-lime-text dark:text-lime-400"
     },
     {
       title: "Role-Based Access",
       description: "Granular permissions. Alice can sign, Bob can only view.",
       icon: ShieldCheck,
-      bg: "bg-[#FFE5E5] dark:bg-[#330000]", // Red
-      text: "text-[#B30000] dark:text-[#FF4747]"
+      bg: "bg-surface-2 dark:bg-card border border-border/50",
+      text: "text-foreground"
     },
   ];
 
@@ -78,7 +78,7 @@
     <div class="mb-20 flex flex-col md:flex-row md:items-end justify-between gap-8">
       <div>
         <h2 class="font-display font-black text-5xl text-foreground tracking-tight md:text-7xl leading-[0.9]">
-          Built for <br/><span class="text-primary selection:bg-black selection:text-white">Scale.</span>
+          Built for <br/><span class="text-lime-text selection:bg-primary selection:text-primary-foreground">Scale.</span>
         </h2>
       </div>
       <p class="max-w-md font-bold text-xl text-muted-foreground leading-relaxed md:text-right">

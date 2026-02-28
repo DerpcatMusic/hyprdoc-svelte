@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Throttled } from "runed";
   import { useEditorBrain } from "$lib/editor/core/EditorBrain.svelte";
   import PrecisionInput from "./properties/PrecisionInput.svelte";
   import ToolbarButton from "./toolbar/ToolbarButton.svelte";
@@ -29,10 +30,13 @@
     isInteracting = interacting;
   }
 
+  // Throttle position updates to prevent excessive coordsAtPos calls
+  const throttledSelection = new Throttled(() => brain.selection, 50);
+
   $effect(() => {
     if (!brain.editor || isInteracting) return;
 
-    const { from, to } = brain.selection;
+    const { from, to } = throttledSelection.current;
     const isTextSelection = from !== to && !("node" in brain.editor.state.selection);
 
     if (isTextSelection) {
@@ -54,12 +58,12 @@
         let finalTop = top - TOOLBAR_HEIGHT - 10;
         if (finalTop < HEADER_HEIGHT) finalTop = bottom + 10;
 
-        toolbarStyle = `top: ${finalTop}px; left: ${left}px; transform: translateX(-50%); transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);`;
+        toolbarStyle = `top: ${finalTop}px; left: 50%; transform: translateX(-50%); transition: top 0.2s cubic-bezier(0.2, 0, 0, 1);`;
       } catch (e) {
-        toolbarStyle = "top: 5rem; left: 50%; transform: translateX(-50%); transition: all 0.3s ease-out;";
+        toolbarStyle = "top: 5rem; left: 50%; transform: translateX(-50%); transition: top 0.3s ease-out;";
       }
     } else {
-      toolbarStyle = "top: 5rem; left: 50%; transform: translateX(-50%); transition: all 0.3s ease-out;";
+      toolbarStyle = "top: 5rem; left: 50%; transform: translateX(-50%); transition: top 0.3s ease-out;";
     }
   });
 
@@ -85,7 +89,7 @@
 
 {#if brain.editor}
   <div
-    class="fixed z-[100] flex items-center gap-1 p-1.5 rounded-xl border border-border/60 bg-card shadow-premium animate-in fade-in zoom-in-95 duration-300"
+    class="toolbar-scroll fixed z-[45] flex w-full max-w-7xl items-center gap-1 overflow-x-auto rounded-2xl border border-border/70 bg-card/90 p-2 shadow-2xl shadow-black/10 backdrop-blur-xl supports-[backdrop-filter]:bg-card/80 animate-in fade-in zoom-in-95 duration-200"
     style={toolbarStyle}
   >
     <!-- 1. TEXT STYLE -->
@@ -143,10 +147,10 @@
     </ToolbarGroup>
 
     <!-- FLEX SPACER -->
-    <div class="w-8"></div>
+    <div class="hidden lg:block w-4"></div>
 
     <!-- 6. FONT PROPERTIES (RIGHT ALIGNED) -->
-    <div class="flex items-center gap-2 px-1">
+    <div class="flex items-center gap-2 px-1 rounded-xl border border-border/60 bg-muted/20 py-1">
       <PrecisionInput
         label="Size"
         value={displayFontSize}
@@ -171,5 +175,6 @@
 {/if}
 
 <style>
-  div::-webkit-scrollbar { display: none; }
+  .toolbar-scroll::-webkit-scrollbar { display: none; }
+  .toolbar-scroll { scrollbar-width: none; }
 </style>

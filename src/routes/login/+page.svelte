@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { Spinner } from "$lib/components/ui/spinner";
-  import { Button } from "$lib/components/ui/button";
   import { Mail, Shield, Lock, Fingerprint, ArrowRight } from "lucide-svelte";
   import gsap from "gsap";
 
@@ -29,8 +28,27 @@
 
   function handleAuth(method: string) {
     isLoading = true;
-    // Redirect to WorkOS endpoint with specific hints
-    window.location.href = `/auth/login?method=${method}`;
+    if (method === "email") {
+      window.location.href = "/auth/email";
+      return;
+    }
+
+    if (method === "google") {
+      window.location.href = "/auth/login?provider=GoogleOAuth";
+      return;
+    }
+
+    if (method === "sso") {
+      window.location.href = "/auth/sso";
+      return;
+    }
+
+    if (method === "passkey") {
+      window.location.href = "/auth/passkey";
+      return;
+    }
+
+    isLoading = false;
   }
 </script>
 
@@ -61,7 +79,7 @@
       <!-- Auth Methods -->
       <div class="grid gap-4">
          <button 
-           onclick={() => handleAuth('google')}
+           onclick={() => handleAuth('email')}
            class="group flex items-center justify-between p-6 rounded-2xl border border-border bg-card/50 hover:border-primary/50 hover:bg-card transition-all active:scale-[0.98]"
          >
            <div class="flex items-center gap-4">
@@ -69,8 +87,8 @@
                 <Mail class="text-muted-foreground group-hover:text-primary transition-colors" size={20} />
               </div>
               <div class="text-left">
-                <div class="font-bold text-foreground">Standard Access</div>
-                <div class="text-xs text-muted-foreground">Continue with Google / Email</div>
+                <div class="font-bold text-foreground">Email Access</div>
+                <div class="text-xs text-muted-foreground">Sign in with a magic code</div>
               </div>
            </div>
            <ArrowRight size={18} class="text-muted-foreground group-hover:text-primary transition-all group-hover:translate-x-1" />

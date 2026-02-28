@@ -8,15 +8,17 @@
   import AuthModal from '$lib/components/auth/AuthModal.svelte';
   import { setNavState } from "$lib/stores/nav-state.svelte";
 
+  interface Props {
+    children: import('svelte').Snippet;
+    activeSection?: string;
+    setActiveSection?: (id: string) => void;
+  }
+
   let { 
     children, 
     activeSection = "hero", 
     setActiveSection = (id: string) => {} 
-  } = $props<{
-    children: import('svelte').Snippet;
-    activeSection?: string;
-    setActiveSection?: (id: string) => void;
-  }>();
+  }: Props = $props();
 
   const nav = setNavState();
 

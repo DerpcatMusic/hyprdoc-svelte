@@ -20,7 +20,7 @@
       subtitle: "Logic",
       description: "Contracts that think. Logic blocks that execute automatically.",
       icon: GitBranch,
-      bgClass: "bg-[#f5f5f5] dark:bg-[#1a1a1a] border-none text-foreground", // Bold Neutral
+      bgClass: "bg-surface-2 text-foreground border border-border/50", // Standard Card
       visualId: "logic"
     },
     {
@@ -29,7 +29,7 @@
       subtitle: "Sync",
       description: "Sub-50ms sync. Negotiate in real-time.",
       icon: Users,
-      bgClass: "bg-[#9FE870] text-black border-none", // WISE GREEN BOLD
+      bgClass: "bg-primary text-primary-foreground border border-primary", // Primary Green Card
       visualId: "collab"
     },
     {
@@ -38,7 +38,7 @@
       subtitle: "Control",
       description: "Your data stays yours. Private nodes and zero-trust security.",
       icon: Shield,
-      bgClass: "bg-[#2e4d2e] text-white border-none", // DEEP FOREST BOLD
+      bgClass: "bg-surface-3 text-foreground border border-border/50", // Darker/Secondary Card
       visualId: "sovereign"
     },
     {
@@ -47,7 +47,7 @@
       subtitle: "Scale",
       description: "Automate complex workflows. Connect to standard APIs.",
       icon: Code2,
-      bgClass: "bg-black text-white dark:bg-white dark:text-black border-none", // MONOCHROME BOLD
+      bgClass: "bg-foreground text-background border border-foreground", // Inverted / Monochrome
       visualId: "orchestration"
     },
   ];

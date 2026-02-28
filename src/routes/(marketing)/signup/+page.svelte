@@ -28,7 +28,22 @@
 
   function handleAuth(method: string) {
     isLoading = true;
-    window.location.href = `/auth/login?method=${method}&screen_hint=sign-up`;
+    if (method === "email") {
+      window.location.href = `/auth/email?screen_hint=sign-up`;
+      return;
+    }
+
+    if (method === "google") {
+      window.location.href = `/auth/login?provider=GoogleOAuth&screen_hint=sign-up`;
+      return;
+    }
+
+    if (method === "sso") {
+      window.location.href = `/auth/sso?screen_hint=sign-up`;
+      return;
+    }
+
+    isLoading = false;
   }
 </script>
 

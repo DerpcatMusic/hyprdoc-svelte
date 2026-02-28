@@ -1,9 +1,9 @@
 <script lang="ts">
   /**
-   * GlossaryPanel - Dictionary Management
-   * ════════════════════════════════════════════════════════════════════════════
-   * Manage legal/business terms with definitions for hover tooltips.
-   * Svelte 5 Runes + RUNED for performance.
+   * GlossaryPanel - Redesigned with ULTRATHINK Protocol
+   * - Avant-Garde UI Styling
+   * - High-Performance Debounced Search
+   * - Refined Entry Cards
    */
   import { Debounced } from "runed";
   import { useConvexClient, useQuery } from "convex-svelte";
@@ -11,19 +11,23 @@
     Book,
     Check,
     Loader2,
-    PenTool,
     Plus,
     Search,
     Trash2,
     X,
+    Hash,
+    Shapes,
+    Sparkles,
+    BookOpen
   } from "lucide-svelte";
-  import { slide } from "svelte/transition";
+  import { slide, fade } from "svelte/transition";
   import { api } from "@/convex/_generated/api";
   import type { Id } from "@/convex/_generated/dataModel";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
-  import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { cn } from "$lib/utils";
+  import { Label } from "$lib/components/ui/label";
+  import { EDITOR_PANEL_LAYOUT } from "$lib/styles/editor-layout";
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // TYPES
@@ -46,7 +50,7 @@
 
   // Search with RUNED debounce
   let searchValue = $state("");
-  const debouncedSearch = new Debounced(() => searchValue, 200);
+  const debouncedSearch = new Debounced(() => searchValue, 150);
   const searchQuery = $derived(debouncedSearch.current);
 
   // UI state
@@ -57,7 +61,7 @@
   let formData = $state({
     term: "",
     definition: "",
-    category: "User",
+    category: "General",
   });
 
   // Inline edit state
@@ -76,7 +80,7 @@
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   function resetForm() {
-    formData = { term: "", definition: "", category: "User" };
+    formData = { term: "", definition: "", category: "General" };
     isAddingMode = false;
     editingId = null;
   }
@@ -86,7 +90,7 @@
     formData = {
       term: t.term,
       definition: t.definition,
-      category: t.category || "User",
+      category: t.category || "General",
     };
     isAddingMode = true;
   }
@@ -126,31 +130,6 @@
     }
   }
 
-  // Inline editing
-  function startInlineEdit(t: TermData) {
-    inlineEditId = t._id;
-    inlineEditDef = t.definition;
-  }
-
-  async function saveInlineEdit(term: string) {
-    if (!inlineEditId) return;
-    try {
-      await convex.mutation(api.glossary.mutations.updateTerm, {
-        id: inlineEditId as Id<"glossaryTerms">,
-        term: term,
-        definition: inlineEditDef,
-      });
-    } catch (e) {
-      console.error("Failed to save", e);
-    }
-    inlineEditId = null;
-  }
-
-  function cancelInlineEdit() {
-    inlineEditId = null;
-    inlineEditDef = "";
-  }
-
   // Grouped by category
   const groupedTerms = $derived.by(() => {
     if (!terms) return {};
@@ -164,44 +143,43 @@
   });
 </script>
 
-<div class="flex h-full w-full flex-col font-sans bg-card">
-  <!-- ═══ HEADER ═══ -->
-  <div class="sticky top-0 z-20 flex flex-col gap-2 border-b border-border/40 bg-card px-3 py-3">
-    <div class="flex items-center justify-between">
-      <h2 class="font-display font-semibold text-foreground text-sm">Glossary</h2>
+<div class="flex h-full w-full flex-col bg-card overflow-hidden">
+  <div class={EDITOR_PANEL_LAYOUT.header}>
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <p class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Knowledge Layer</p>
+        <h2 class="text-sm font-bold text-foreground">Glossary</h2>
+      </div>
       <Button
-        size="icon"
-        variant={isAddingMode ? "secondary" : "ghost"}
-        class={cn("h-7 w-7 rounded-full transition-all duration-200", isAddingMode && "rotate-45")}
+        size="sm"
+        variant={isAddingMode ? "secondary" : "default"}
+        class="h-8 w-8 rounded-md"
         onclick={() => (isAddingMode ? resetForm() : (isAddingMode = true))}
       >
-        <Plus class="size-4" />
+        <Plus class={cn("size-4 transition-transform", isAddingMode && "rotate-45")} />
       </Button>
     </div>
 
     <!-- Search -->
     <div class="relative">
-      <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+      <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/50" />
       <Input
         bind:value={searchValue}
-        placeholder="Search terms..."
-        class="h-8 pl-8 text-xs bg-muted/40 border-transparent focus-visible:border-primary/30"
+        placeholder="Search glossary..."
+        class="h-8 rounded-md border-border/60 bg-background pl-8 text-xs"
       />
     </div>
   </div>
 
-  <!-- ═══ NEW TERM FORM ═══ -->
   {#if isAddingMode}
-    <div transition:slide={{ duration: 200 }} class="border-b border-border/40 bg-muted/30 p-3 space-y-2">
+    <div transition:slide={{ duration: 200 }} class="border-b border-border/40 bg-muted/20 p-4 space-y-3">
       <div class="flex items-center justify-between">
-        <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-          {editingId ? "Edit Term" : "New Term"}
-        </span>
+        <Label class="text-[10px] uppercase font-bold text-muted-foreground">{editingId ? "Edit Term" : "New Term"}</Label>
         {#if editingId}
           <Button
             variant="ghost"
             size="sm"
-            class="h-5 px-2 text-[10px] text-destructive hover:bg-destructive/10"
+            class="h-6 px-2 text-destructive hover:bg-destructive/10 text-[10px] font-bold uppercase"
             onclick={handleDelete}
           >
             <Trash2 class="size-3 mr-1" /> Delete
@@ -211,118 +189,88 @@
 
       <Input
         bind:value={formData.term}
-        placeholder="Term (e.g., 'NDA')"
-        class="h-7 text-xs font-semibold"
+        placeholder="Term (e.g. 'Force Majeure')"
+        class="h-9 bg-background border-border/60 rounded-md text-sm font-bold"
       />
 
       <textarea
-        bind:value={formData.definition}
-        placeholder="Definition..."
-        class="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        onkeydown={(e: KeyboardEvent) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleSave();
-        }}
+          bind:value={formData.definition}
+          placeholder="Enter definition..."
+          class="flex min-h-[80px] w-full rounded-md border border-border/60 bg-background px-3 py-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/20 transition-all"
+          onkeydown={(e: KeyboardEvent) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleSave();
+          }}
       ></textarea>
 
-      <Button class="h-7 w-full text-xs font-medium" onclick={handleSave} disabled={!formData.term || !formData.definition}>
-        {editingId ? "Update" : "Add Term"}
-      </Button>
+      <div class="flex gap-2 pt-1">
+        <Button size="sm" class="flex-1 h-8 rounded-md text-[11px] font-bold" onclick={handleSave} disabled={!formData.term || !formData.definition}>
+          {editingId ? "Update" : "Create"}
+        </Button>
+        <Button size="sm" variant="outline" class="h-8 px-3 rounded-md text-[11px] font-bold" onclick={resetForm}>
+          Cancel
+        </Button>
+      </div>
     </div>
   {/if}
 
-  <!-- ═══ TERMS LIST ═══ -->
-  <ScrollArea class="flex-1">
-    <div class="pb-20">
-      {#if termsQuery.isLoading}
-        <div class="flex justify-center p-8">
-          <Loader2 class="size-5 animate-spin text-muted-foreground" />
+  <div class={EDITOR_PANEL_LAYOUT.bodyScroll}>
+    <div class={EDITOR_PANEL_LAYOUT.bodyPadded + " space-y-6"}>
+      {#if termsQuery.isLoading && !terms}
+        <div class="flex items-center justify-center p-12">
+          <Loader2 class="size-5 animate-spin text-muted-foreground/40" />
         </div>
       {:else if !terms || terms.length === 0}
-        <div class="flex flex-col items-center justify-center py-12 text-muted-foreground/40">
-          <Book class="size-8 mb-2 opacity-20" />
-          <p class="text-xs">No terms yet</p>
-          <p class="text-[10px] mt-1">Add definitions for legal terms</p>
+        <div class="flex flex-col items-center justify-center py-12 text-center">
+           <p class="text-[11px] font-medium text-muted-foreground">No terms defined.</p>
         </div>
       {:else}
-        {#each Object.entries(groupedTerms) as [category, catTerms]}
+        {#each Object.entries(groupedTerms) as [category, catTerms] (category)}
           {#if catTerms.length > 0}
-            <div class="border-b border-border/20">
+            <div class="space-y-3">
               <!-- Category Header -->
-              <div class="flex items-center gap-2 px-3 py-1.5 bg-muted/20">
-                <span class="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest">{category}</span>
-                <span class="text-[9px] text-muted-foreground/40">({catTerms.length})</span>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{category}</span>
+                <div class="h-px flex-1 bg-border/20"></div>
+                <span class="text-[10px] font-mono text-muted-foreground/40">[{catTerms.length}]</span>
               </div>
 
-              <!-- Terms -->
-              {#each catTerms as term (term._id)}
-                {@const isInlineEditing = inlineEditId === term._id}
-
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
-                <div
-                  class="group px-3 py-2.5 border-b border-border/10 hover:bg-muted/30 transition-colors cursor-pointer"
-                  onclick={() => handleEditClick(term)}
-                  role="button"
-                  tabindex="0"
-                >
-                  <div class="flex items-start justify-between gap-2">
-                    <div class="flex-1 min-w-0">
-                      <!-- Term Name -->
-                      <div class="flex items-center gap-2 mb-0.5">
-                        <span class="font-semibold text-primary text-xs truncate">{term.term}</span>
+              <div class="grid gap-2">
+                {#each catTerms as term (term._id)}
+                  <button
+                    type="button"
+                    class="group relative w-full overflow-hidden rounded-xl border border-border/50 bg-card/70 p-4 text-left transition-all hover:border-primary/30 hover:shadow-sm"
+                    onclick={() => handleEditClick(term)}
+                  >
+                    <div class="relative z-10">
+                      <div class="flex items-center justify-between mb-1.5">
+                        <h4 class="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                            {term.term}
+                        </h4>
                         {#if term.source}
-                          <span class="text-[8px] text-muted-foreground/50 font-mono uppercase">{term.source}</span>
+                           <span class="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-tight bg-muted/50 px-1.5 py-0.5 rounded">
+                             {term.source}
+                           </span>
                         {/if}
                       </div>
-
-                      <!-- Definition (inline editable) -->
-                      {#if isInlineEditing}
-                        <!-- svelte-ignore a11y_click_events_have_key_events -->
-                        <div class="flex items-start gap-1 mt-1" onclick={(e: MouseEvent) => e.stopPropagation()} role="none">
-                          <textarea
-                            bind:value={inlineEditDef}
-                            class="flex-1 min-h-[40px] rounded border border-input bg-background px-2 py-1 text-[11px] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            onkeydown={(e: KeyboardEvent) => {
-                              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") saveInlineEdit(term.term);
-                              if (e.key === "Escape") cancelInlineEdit();
-                            }}
-                          ></textarea>
-                          <div class="flex flex-col gap-0.5">
-                            <Button size="icon" variant="ghost" class="size-5" onclick={() => saveInlineEdit(term.term)}>
-                              <Check class="size-3 text-green-500" />
-                            </Button>
-                            <Button size="icon" variant="ghost" class="size-5" onclick={cancelInlineEdit}>
-                              <X class="size-3 text-muted-foreground" />
-                            </Button>
-                          </div>
-                        </div>
-                      {:else}
-                        <p class="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
-                          {term.definition}
-                        </p>
-                      {/if}
+                      
+                      <p class="text-[11px] text-muted-foreground leading-relaxed">
+                        {term.definition}
+                      </p>
                     </div>
-
-                    <!-- Edit Icon -->
-                    <div class="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        class="size-6"
-                        onclick={(e: MouseEvent) => {
-                          e.stopPropagation();
-                          startInlineEdit(term);
-                        }}
-                      >
-                        <PenTool class="size-3 text-muted-foreground" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              {/each}
+                  </button>
+                {/each}
+              </div>
             </div>
           {/if}
         {/each}
       {/if}
     </div>
-  </ScrollArea>
+  </div>
+
+  <div class={EDITOR_PANEL_LAYOUT.footer}>
+      <div class={EDITOR_PANEL_LAYOUT.footerMeta}>
+         <span>Glossary Context</span>
+         <span>{terms ? terms.length : 0} Terms</span>
+      </div>
+  </div>
 </div>

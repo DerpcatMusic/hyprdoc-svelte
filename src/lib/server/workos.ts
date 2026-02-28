@@ -38,20 +38,42 @@ export function clearSessionCookie(cookies: Cookies) {
 
 export async function getAuthorizationUrl(options: { 
 	state?: string; 
-	screenHint?: string; 
+	screenHint?: 'sign-up' | 'sign-in';
 	provider?: string;
+	loginHint?: string;
 	domainHint?: string;
 	connectionId?: string;
+	organizationId?: string;
+	prompt?: string;
 } = {}) {
-	return workos.userManagement.getAuthorizationUrl({
-        provider: (options.provider as any) || 'authkit', 
+	// Clean params to avoid empty strings/nulls in the generated URL.
+	// Only default to hosted AuthKit when no direct SSO routing data is provided.
+	const params: Parameters<typeof workos.userManagement.getAuthorizationUrl>[0] = {
 		clientId: env.WORKOS_CLIENT_ID!,
-		redirectUri: env.WORKOS_REDIRECT_URI!,
-		state: options.state,
-		screenHint: options.screenHint as 'sign-up' | undefined,
-		domainHint: options.domainHint,
-		connectionId: options.connectionId
+		redirectUri: env.WORKOS_REDIRECT_URI!
+	};
+
+	if (options.provider) {
+		params.provider = options.provider;
+	} else if (!options.connectionId && !options.organizationId) {
+		params.provider = 'authkit';
+	}
+
+	if (options.state) params.state = options.state;
+	if (options.screenHint) params.screenHint = options.screenHint;
+	if (options.loginHint) params.loginHint = options.loginHint;
+	if (options.domainHint) params.domainHint = options.domainHint;
+	if (options.connectionId) params.connectionId = options.connectionId;
+	if (options.organizationId) params.organizationId = options.organizationId;
+	if (options.prompt) params.prompt = options.prompt;
+
+	console.log(' [WorkOS] Generating Auth URL:', {
+		hasClientId: !!env.WORKOS_CLIENT_ID,
+		hasRedirectUri: !!env.WORKOS_REDIRECT_URI,
+		params
 	});
+
+	return workos.userManagement.getAuthorizationUrl(params);
 }
 
 /**

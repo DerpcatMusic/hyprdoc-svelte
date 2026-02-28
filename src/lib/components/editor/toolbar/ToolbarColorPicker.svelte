@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Popover as BitsPopover } from "bits-ui";
-  import { fade, scale } from "svelte/transition";
+  import { scale } from "svelte/transition";
   import { Button } from "$lib/components/ui/button";
   import {
     Tooltip,
@@ -10,6 +10,10 @@
   } from "$lib/components/ui/tooltip";
   import { cn } from "$lib/utils";
   import SpectrumPicker from "./SpectrumPicker.svelte";
+  import {
+    EDITOR_HIGHLIGHT_PRESETS,
+    HYPR_DEFAULT_TEXT_COLOR,
+  } from "$lib/styles/ui-palette";
 
   interface Props {
     value: string | undefined;
@@ -29,17 +33,7 @@
     onInteractionChange,
   }: Props = $props();
 
-  // Juicy High-Saturation Presets
-  const presets = [
-    { name: "Red", color: "#ff4d4d" },
-    { name: "Orange", color: "#ff9f43" },
-    { name: "Yellow", color: "#feca57" },
-    { name: "Green", color: "#1dd1a1" },
-    { name: "Azure", color: "#00d2d3" },
-    { name: "Blue", color: "#2e86de" },
-    { name: "Purple", color: "#5f27cd" },
-    { name: "Pink", color: "#ff9ff3" },
-  ];
+  const presets = EDITOR_HIGHLIGHT_PRESETS;
 
   let isOpen = $state(false);
   let mode = $state<"presets" | "spectrum">("presets");
@@ -168,7 +162,7 @@
     {:else}
       <div in:scale={{ start: 0.95, duration: 200 }}>
         <SpectrumPicker
-          value={value || '#000000'}
+          value={value || HYPR_DEFAULT_TEXT_COLOR}
           onChange={(c) => onColorSelect(c)}
           autoStartDrag={isLongPress}
         />

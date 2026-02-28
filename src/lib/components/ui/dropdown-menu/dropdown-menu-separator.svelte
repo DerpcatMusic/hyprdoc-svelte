@@ -2,7 +2,7 @@
   import { DropdownMenu as BitsDropdownMenu } from "bits-ui";
   import { cn } from "$lib/utils";
 
-  const { class: className, ...restProps } = $props();
+  const { class: className = undefined, ...restProps } = $props();
 </script>
 
 <BitsDropdownMenu.Separator

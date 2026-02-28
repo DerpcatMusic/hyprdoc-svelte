@@ -8,7 +8,7 @@
 		quarters: string[];
 	}
 
-	let { itemsByQuarter, quarters } = $props<Props>();
+	let { itemsByQuarter, quarters }: Props = $props();
 
 	const currentDate = new Date();
 	const currentYear = currentDate.getFullYear();

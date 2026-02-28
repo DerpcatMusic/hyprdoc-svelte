@@ -1,9 +1,9 @@
 // convex/glossary/actions.ts
-import { api } from "@/convex/_generated/api";
-import { action } from "@/convex/_generated/server";
+import { api } from "../_generated/api";
+import { zAction } from "../lib/core";
 
 // Seed action to populate Black's Law Dictionary
-export const seedBlacksLawDictionary = action({
+export const seedBlacksLawDictionary = zAction({
   args: {},
   handler: async (ctx) => {
     try {

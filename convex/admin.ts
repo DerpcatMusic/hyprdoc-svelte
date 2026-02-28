@@ -1,22 +1,16 @@
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { zQuery, zMutation, z, zid } from "./lib/core";
 
 /**
  * Get current user info for debugging.
  */
-export const getMyUserInfo = query({
+export const getMyUserInfo = zQuery({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    if (!ctx.user) {
       return null;
     }
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_workos_id", (q) => q.eq("workosId", identity.subject))
-      .unique();
-
+    const user = await ctx.db.get(ctx.user._id);
     return user;
   },
 });
@@ -25,7 +19,7 @@ export const getMyUserInfo = query({
  * List all users to find your ID or Email.
  * CLI: npx convex run admin:listUsers
  */
-export const listUsers = query({
+export const listUsers = zQuery({
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query("users").collect();
@@ -36,8 +30,8 @@ export const listUsers = query({
  * Upgrade a specific user to PRO by Email.
  * CLI: npx convex run admin:upgradeByEmail '{ "email": "your@email.com" }'
  */
-export const upgradeByEmail = mutation({
-  args: { email: v.string() },
+export const upgradeByEmail = zMutation({
+  args: { email: z.string() },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query("users")
@@ -65,10 +59,10 @@ export const upgradeByEmail = mutation({
  * Claim ownership of a document for a specific user.
  * CLI: npx convex run admin:claimOwnership '{ "documentId": "...", "email": "your@email.com" }'
  */
-export const claimOwnership = mutation({
+export const claimOwnership = zMutation({
   args: {
-    documentId: v.id("documents"),
-    email: v.string(),
+    documentId: zid("documents"),
+    email: z.string(),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db

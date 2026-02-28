@@ -1,0 +1,256 @@
+/* ===== TIPTAP PREMIUM STYLES ===== */
+.ProseMirror {
+    @apply min-h-[calc(100vh-12rem)] outline-none;
+    /* Document-wide font from CSS variables */
+    font-family: var(--hd-font-family, var(--font-sans)), var(--font-sans);
+    color: inherit;
+    transition: font-family 0.2s ease;
+  }
+  
+  /* Hover Nudge Effect for Top-Level Blocks */
+  .ProseMirror > *:not(.hyprdoc-block) {
+    @apply transition-all duration-500 relative px-4 -mx-4 rounded-xl;
+    transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  
+  .ProseMirror > *:not(.hyprdoc-block):hover {
+    @apply bg-primary/5 translate-x-2;
+  }
+  
+  /* Forensic Indicator Line */
+  .ProseMirror > *:not(.hyprdoc-block)::before {
+    content: "";
+    @apply absolute top-0 bottom-0 left-[-8px] w-[2px] bg-primary opacity-0 transition-opacity duration-300 pointer-events-none rounded-full;
+  }
+  
+  .ProseMirror > *:not(.hyprdoc-block):hover::before {
+    @apply opacity-60;
+  }
+  
+  /* Ensure placeholder doesn't move weirdly */
+  .ProseMirror > .is-editor-empty:first-child::before {
+    @apply transition-transform duration-500;
+    transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  
+  /* Typography Enhancements */
+  .ProseMirror p {
+    @apply mb-4;
+  }
+  
+  .ProseMirror h1, 
+  .ProseMirror h2, 
+  .ProseMirror h3, 
+  .ProseMirror h4 {
+    font-family: var(--hd-font-title, var(--font-display)), var(--font-display);
+    @apply font-bold tracking-tight text-foreground scroll-m-20;
+    transition: font-family 0.2s ease;
+  }
+  
+  .ProseMirror h1 {
+    @apply text-[2.5em] mt-12 mb-6 border-b pb-2 border-border/50;
+  }
+  .ProseMirror h2 {
+    @apply text-[2em] mt-10 mb-5;
+  }
+  .ProseMirror h3 {
+    @apply text-[1.5em] mt-8 mb-4;
+  }
+  .ProseMirror h4 {
+    @apply text-[1.25em] mt-6 mb-3;
+  }
+  
+  /* Premium Blockquote */
+  .ProseMirror blockquote {
+    @apply border-l-4 border-primary pl-6 italic my-8 text-muted-foreground bg-muted py-4 pr-4 rounded-r-lg transition-colors hover:border-foreground;
+  }
+  
+  /* Lists */
+  .ProseMirror ul {
+    @apply list-disc list-outside ml-6 mb-4 marker:text-primary/70;
+  }
+  .ProseMirror ol {
+    @apply list-decimal list-outside ml-6 mb-4 marker:text-primary font-medium;
+  }
+  .ProseMirror li {
+    @apply mb-2 pl-1;
+  }
+  
+  /* Code Blocks */
+  .ProseMirror pre {
+    @apply bg-zinc-950 text-zinc-50 rounded-xl p-5 my-6 overflow-x-auto border border-zinc-800 font-mono text-sm leading-relaxed;
+  }
+  .ProseMirror code {
+    @apply bg-muted px-1.5 py-0.5 rounded font-mono text-sm text-primary font-medium border-2 border-border;
+  }
+  .ProseMirror pre code {
+    @apply bg-transparent p-0 text-inherit border-none;
+  }
+  
+  /* Links */
+  .ProseMirror a {
+    @apply text-primary underline underline-offset-4 decoration-primary/30 transition-all hover:decoration-primary font-medium;
+  }
+  
+  /* Horizontal Rule */
+  .ProseMirror hr {
+    @apply my-10 border-border/60;
+  }
+  
+  /* Images */
+  .ProseMirror img {
+    @apply rounded-lg border-2 border-border my-8;
+  }
+  
+  /* Selection */
+  .ProseMirror ::selection {
+    background-color: oklch(from var(--primary) l c h / 15%);
+    color: inherit;
+  }
+  
+  /* Placeholder - positioned to match actual text flow */
+  .ProseMirror p.is-editor-empty:first-child::before {
+    color: var(--hd-placeholder-color);
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  
+  /* Focus State - Subtle Glow */
+  .ProseMirror-focused {
+    outline: none;
+  }
+  
+  /* Variable Mentions - Premium Chips */
+  .variable-mention {
+    @apply inline-flex items-center gap-1.5 bg-muted text-primary font-mono text-xs font-medium px-2 py-0.5 rounded cursor-pointer transition-colors border-2 border-border hover:bg-card select-none;
+  }
+  
+  /* Text Highlights */
+  .ProseMirror mark {
+    @apply bg-yellow-200/50 dark:bg-yellow-500/20 text-foreground px-0.5 rounded-sm;
+  }
+  
+  /* AI Selection Highlight */
+  .ai-selection-highlight {
+    background-color: oklch(from var(--primary) l c h / 20%);
+    border-bottom: 2px solid var(--primary);
+    border-radius: 2px;
+    transition: all 0.2s ease;
+  }
+  
+  /* ===== REAL-TIME COLLABORATION CURSORS ===== */
+  .collab-cursor {
+    position: relative;
+    display: inline-flex;
+    align-items: flex-start;
+    pointer-events: none;
+    z-index: 50;
+  }
+  
+  .collab-cursor::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -3px;
+    width: 6px;
+    height: 1.2em;
+    background: var(--cursor-color, #6366f1);
+    border-radius: 3px;
+    box-shadow:
+      0 0 8px color-mix(in srgb, var(--cursor-color, #6366f1) 60%, transparent),
+      0 2px 6px rgba(0, 0, 0, 0.15);
+    animation: collab-cursor-pulse 1.5s ease-in-out infinite;
+  }
+  
+  .collab-cursor-label {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+    user-select: none;
+    pointer-events: none;
+    box-shadow:
+      0 2px 8px color-mix(in srgb, var(--cursor-color, #6366f1) 40%, transparent),
+      0 1px 3px rgba(0, 0, 0, 0.1);
+    animation: collab-label-pop-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border: 1.5px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .collab-cursor-label::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid var(--cursor-color, #6366f1);
+  }
+  
+  .collab-selection {
+    background-color: color-mix(
+      in srgb,
+      var(--selection-color, #6366f1) 20%,
+      transparent
+    );
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--selection-color, #6366f1) 30%, transparent);
+  }
+  
+  /* Collaboration Cursors Caret - Alternative */
+  .collaboration-cursor__caret {
+    position: absolute;
+    border-left: 2px solid;
+    border-right: 0;
+    height: 1.2em;
+    pointer-events: none;
+    width: 0;
+    z-index: 50;
+  }
+  
+  .collaboration-cursor__label {
+    position: absolute;
+    top: -1.4em;
+    left: -2px;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 50;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  /* --- TIPTAP THEME-AGNOSTIC TEXT CONTRAST --- */
+.prose {
+    color: var(--foreground);
+}
+  
+  /* Force dark text on light backgrounds if it's white-ish */
+  html:not(.dark) .prose [style*="color: white"],
+  html:not(.dark) .prose [style*="color: #fff"],
+  html:not(.dark) .prose [style*="color: #ffffff"],
+  html:not(.dark) .prose [style*="color: rgb(255, 255, 255)"] {
+    color: var(--foreground) !important;
+  }
+  
+  /* Force light text on dark backgrounds if it's dark-ish */
+  html.dark .prose [style*="color: black"],
+  html.dark .prose [style*="color: #000"],
+  html.dark .prose [style*="color: #000000"],
+  html.dark .prose [style*="color: rgb(0, 0, 0)"] {
+    color: var(--foreground) !important;
+  }

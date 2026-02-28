@@ -1,12 +1,6 @@
-/**
- * editor/queries.ts - Editor Data Query
- * Combined query for all editor data - reduces WebSocket roundtrips.
- */
-import { type Infer, v } from "convex/values";
-import type { Id } from "@/convex/_generated/dataModel";
+import { z, zid, zQuery } from "@/convex/lib/core";
+import type { Id, Doc } from "@/convex/_generated/dataModel";
 import type { QueryCtx } from "@/convex/_generated/server";
-import { query, protectedQuery } from "@/convex/lib/core";
-import type { documentReturnValidator } from "../lib/validators";
 
 // ═══════════════════════════════════════════════════════════════
 // GLOBAL VARIABLES HELPER
@@ -94,18 +88,18 @@ async function getGlobalVariablesForDocument(
  * Combined query for all editor data.
  * Fetches document, glossary terms, and global variables in one roundtrip.
  */
-export const getEditorData = query({
+export const getEditorData = zQuery({
 	args: {
-		documentId: v.optional(v.id("documents")),
-		templateId: v.optional(v.id("documents")),
+		documentId: zid("documents").optional(),
+		templateId: zid("documents").optional(),
 	},
 	handler: async (ctx, args) => {
 		if (!(args.documentId || args.templateId)) {
 			return null;
 		}
 
-		let document: Infer<typeof documentReturnValidator> | null = null;
-		let template: Infer<typeof documentReturnValidator> | null = null;
+		let document: Doc<"documents"> | null = null;
+		let template: Doc<"documents"> | null = null;
 
 		// Fetch document (RLS handles access control)
 		if (args.documentId) {

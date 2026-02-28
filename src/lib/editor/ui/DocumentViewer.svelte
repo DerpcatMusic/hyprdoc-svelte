@@ -13,8 +13,8 @@
   interface Props {
     /** Document content (JSON or string) */
     content: JSONContent | string;
-    /** Rendering mode (builder, viewer, or preview) */
-    mode?: "builder" | "viewer" | "preview";
+    /** Rendering mode (edit, view, or sign) */
+    mode?: "edit" | "view" | "sign";
     /** CSS scale for thumbnails (default: 1) */
     scale?: number;
     /** Show "Sealed" badge */
@@ -36,7 +36,7 @@
 
   let {
     content: rawContent,
-    mode = "viewer",
+    mode = "view",
     scale = 1,
     showBadge = false,
     settings = {},
@@ -64,7 +64,7 @@
   });
 
   const staticHtml = $derived.by(() => {
-    if (mode !== "preview" || !parsedContent) return "";
+    if (mode !== "sign" || !parsedContent) return "";
     try {
       const extensions = createEditorExtensions({ placeholder: "" });
       return generateHTML(parsedContent, extensions);
@@ -78,9 +78,9 @@
   let editor = $state<Editor>();
 
   onMount(() => {
-    if (!element || mode === "preview") return;
+    if (!element || mode === "sign") return;
 
-    // Use a simplified version of extensions for non-builder modes
+    // Use a simplified version of extensions for non-edit modes
     const extensions = createEditorExtensions({
       placeholder: "",
     });
@@ -89,7 +89,7 @@
       element,
       extensions,
       content: parsedContent,
-      editable: mode === "builder",
+      editable: mode === "edit",
       editorProps: {
         attributes: {
           class: "prose prose-sm focus:outline-none max-w-none",
@@ -100,7 +100,7 @@
   });
 
   $effect(() => {
-    if (editor && parsedContent && mode !== "preview") {
+    if (editor && parsedContent && mode !== "sign") {
       editor.commands.setContent(parsedContent);
     }
   });
@@ -122,7 +122,7 @@
   style:transform-origin="top left"
   style:width={!isNaN(scale) && scale > 0 && scale < 1 ? `${100 / scale}%` : undefined}
 >
-  {#if showBadge && mode !== 'builder'}
+  {#if showBadge && mode !== 'edit'}
     <div class="pointer-events-none absolute top-4 right-4 z-20">
       <div
         class="flex items-center gap-1.5 rounded-full border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-emerald-600 dark:text-emerald-400 font-semibold text-xs uppercase tracking-wider"
@@ -135,7 +135,7 @@
 
   <div
     bind:this={element}
-    class="relative transition-all duration-100 ease-out border-[3px] border-primary rounded-sm bg-white dark:bg-[#0a0a0b]"
+    class="relative transition-all duration-100 ease-out border-[3px] border-primary rounded-sm bg-surface-2"
     style:padding-top="{effectiveSettings.marginVertical}px"
     style:padding-bottom="{effectiveSettings.marginVertical}px"
     style:padding-left="{effectiveSettings.marginHorizontal}px"
@@ -146,7 +146,7 @@
     style:--hd-font-title={effectiveSettings.fontTitle}
     style:--hd-font-size={!isNaN(effectiveSettings.fontSize) ? `${effectiveSettings.fontSize}px` : '16px'}
   >
-    {#if mode === 'preview'}
+    {#if mode === 'sign'}
       <div
         class="prose prose-sm focus:outline-none max-w-none"
         style:font-family='"{effectiveSettings.fontBody}", sans-serif'

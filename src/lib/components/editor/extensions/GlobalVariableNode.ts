@@ -60,7 +60,8 @@ export const GlobalVariableNode = Node.create<GlobalVariableOptions>({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ['span', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, { 'data-global-variable': '' }), 0];
+    // Atom nodes (leaf nodes) cannot have content holes - just return empty span
+    return ['span', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, { 'data-global-variable': '' })];
   },
 
   addNodeView() {

@@ -102,6 +102,37 @@ const NATIVE_COMMANDS: CommandItem[] = [
       editor.chain().focus().deleteRange(range).setHorizontalRule().run();
     },
   },
+  // ════════════════════════════════════════════════════════════════════════════
+  // HYPRDOC BLOCKS
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    type: "text-input",
+    title: "Text Input",
+    description: "Single line text field for signers",
+    icon: "i-lucide-text-cursor-input",
+    category: "blocks",
+    command: (editor, range) => {
+      editor.chain().focus().deleteRange(range).insertHyprDocBlock({
+        blockType: "text-input",
+        data: { label: "Enter text", placeholder: "Type here...", value: "", maxLength: null, minLength: null },
+        required: false,
+      }).run();
+    },
+  },
+  {
+    type: "signature",
+    title: "Signature",
+    description: "Signature capture field",
+    icon: "i-lucide-pen-tool",
+    category: "blocks",
+    command: (editor, range) => {
+      editor.chain().focus().deleteRange(range).insertHyprDocBlock({
+        blockType: "signature",
+        data: { label: "Signature", signatureData: null, signedAt: null, signerName: null },
+        required: false,
+      }).run();
+    },
+  },
 ];
 
 export class SlashMenuState {

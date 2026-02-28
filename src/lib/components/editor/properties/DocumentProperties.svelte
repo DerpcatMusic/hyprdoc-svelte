@@ -8,9 +8,9 @@
 	import { Label } from "$lib/components/ui/label";
 	import { Input } from "$lib/components/ui/input";
 	import { Button } from "$lib/components/ui/button";
-	import { Slider } from "$lib/components/ui/slider";
 	import { Switch } from "$lib/components/ui/switch";
-	import * as Select from "$lib/components/ui/select";
+	import { EDITOR_PANEL_LAYOUT } from "$lib/styles/editor-layout";
+	import { HYPR_DEFAULT_TEXT_COLOR } from "$lib/styles/ui-palette";
 	import { 
 		LayoutTemplate, 
 		Palette, 
@@ -50,13 +50,10 @@
         { value: 'none', label: 'None' },
         ...textureOptions
     ];
-	
-	const FONTS = [
-		{ value: "Inter", label: "Inter" },
-		{ value: "Roboto", label: "Roboto" },
-		{ value: "Georgia", label: "Georgia" },
-		{ value: "monospace", label: "Monospace" },
-	];
+
+	const accordionTriggerClass = "px-4 py-3 hover:bg-muted/50 group hover:no-underline";
+	const accordionContentCompactClass = "px-4 pb-4 space-y-4";
+	const accordionContentClass = "px-4 pb-4 space-y-5";
 
 	function setPreset(w: number, h: number) {
 		brain.updateSettings({ pageWidth: w, pageHeight: h });
@@ -84,9 +81,9 @@
 	}
 </script>
 
-<div class="h-full w-full bg-sidebar-background overflow-y-auto">
+<div class={cn("h-full w-full bg-sidebar-background", EDITOR_PANEL_LAYOUT.bodyScroll)}>
 	<!-- Header: Title -->
-	<div class="p-4 border-b border-border/50 bg-card/30">
+	<div class={EDITOR_PANEL_LAYOUT.header}>
 		<Label class="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/70 mb-2 block">Document Title</Label>
 		<Input 
 			value={brain.title} 
@@ -100,13 +97,13 @@
 		
 		<!-- PAGE LAYOUT -->
 		<Accordion.Item value="layout" class="border-border/50">
-			<Accordion.Trigger class="px-4 py-3 hover:bg-muted/50 group hover:no-underline">
+			<Accordion.Trigger class={accordionTriggerClass}>
 				<div class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground group-data-[state=open]:text-primary transition-colors">
 					<LayoutTemplate class="size-3.5" />
 					Page Setup
 				</div>
 			</Accordion.Trigger>
-			<Accordion.Content class="px-4 pb-4 space-y-4">
+			<Accordion.Content class={accordionContentCompactClass}>
 				<!-- Unit Selector -->
 				<div class="flex items-center justify-between">
 					<Label class="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/70">Units</Label>
@@ -182,13 +179,13 @@
 
 		<!-- APPEARANCE -->
 		<Accordion.Item value="appearance" class="border-border/50">
-			<Accordion.Trigger class="px-4 py-3 hover:bg-muted/50 group hover:no-underline">
+			<Accordion.Trigger class={accordionTriggerClass}>
 				<div class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground group-data-[state=open]:text-primary transition-colors">
 					<Palette class="size-3.5" />
 					Aesthetics
 				</div>
 			</Accordion.Trigger>
-			<Accordion.Content class="px-4 pb-4 space-y-5">
+			<Accordion.Content class={accordionContentClass}>
 				<!-- Color -->
 				<div class="grid grid-cols-2 gap-4">
 					<div class="space-y-2">
@@ -233,7 +230,7 @@
 									<div 
 										class="absolute inset-0" 
 										style="background-color: {settings.backgroundColor}; background-image: {generateTextureCSS(tex.value, { 
-											color: settings.paperTextureColor || '#000000', 
+											color: settings.paperTextureColor || HYPR_DEFAULT_TEXT_COLOR, 
 											opacity: 1, 
 											scale: 1 
 										})}"
@@ -266,13 +263,13 @@
 
 		<!-- TYPOGRAPHY -->
 		<Accordion.Item value="typography" class="border-border/50">
-			<Accordion.Trigger class="px-4 py-3 hover:bg-muted/50 group hover:no-underline">
+			<Accordion.Trigger class={accordionTriggerClass}>
 				<div class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground group-data-[state=open]:text-primary transition-colors">
 					<TypeIcon class="size-3.5" />
 					Typography
 				</div>
 			</Accordion.Trigger>
-			<Accordion.Content class="px-4 pb-4 space-y-5">
+			<Accordion.Content class={accordionContentClass}>
 				<div class="space-y-2">
 					<Label class="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/70">Base Font</Label>
 					<FontPicker 
@@ -316,15 +313,14 @@
 			</Accordion.Content>
 		</Accordion.Item>
 
-		<!-- MARGINS -->
 		<Accordion.Item value="margins" class="border-border/50">
-			<Accordion.Trigger class="px-4 py-3 hover:bg-muted/50 group hover:no-underline">
+			<Accordion.Trigger class={accordionTriggerClass}>
 				<div class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground group-data-[state=open]:text-primary transition-colors">
 					<Ruler class="size-3.5" />
 					Margins & Guides
 				</div>
 			</Accordion.Trigger>
-			<Accordion.Content class="px-4 pb-4 space-y-5">
+			<Accordion.Content class={accordionContentClass}>
 				<div class="grid grid-cols-2 gap-4">
 					<PrecisionInput 
 						label="Vertical" 
@@ -342,9 +338,45 @@
 					/>
 				</div>
 
-				<div class="pt-2 flex flex-col gap-3">
+				<!-- Visual Tools Section -->
+				<div class="pt-2 border-t border-border/30">
+					<Label class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3 block">Visual Tools</Label>
+					
+					<div class="flex flex-col gap-3">
+						<!-- Rulers Toggle -->
+						<div class="flex items-center justify-between">
+							<Label class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider cursor-pointer" for="show-rulers">Show Rulers</Label>
+							<Switch 
+								id="show-rulers"
+								checked={brain.showRulers}
+								onCheckedChange={(v: boolean) => brain.showRulers = v}
+							/>
+						</div>
+
+						<!-- Snap to Elements -->
+						<div class="flex items-center justify-between">
+							<div class="flex flex-col">
+								<Label class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider cursor-pointer" for="snap-elements">Snap to Elements</Label>
+								<span class="text-[8px] text-muted-foreground/60">Align to text, lines & centers</span>
+							</div>
+							<Switch 
+								id="snap-elements"
+								checked={brain.snapToElements}
+								onCheckedChange={(v: boolean) => brain.snapToElements = v}
+							/>
+						</div>
+
+						<!-- Custom Guides Hint -->
+						<p class="text-[8px] text-muted-foreground/50 italic">
+							Double-click rulers to add guides
+						</p>
+					</div>
+				</div>
+
+				<!-- Original Margin toggles -->
+				<div class="pt-2 border-t border-border/30 flex flex-col gap-3">
 					<div class="flex items-center justify-between">
-						<Label class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider cursor-pointer" for="show-margins">Show Guides</Label>
+						<Label class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider cursor-pointer" for="show-margins">Show Margin Guides</Label>
 						<Switch 
 							id="show-margins"
 							checked={settings.showMargins}
@@ -369,20 +401,3 @@
 		<span class="text-[8px] font-bold uppercase tracking-[0.3em]">HyprDoc Studio v4.0</span>
 	</div>
 </div>
-
-<style>
-	/* Subtle custom scrollbar */
-	.custom-scrollbar::-webkit-scrollbar {
-		width: 4px;
-	}
-	.custom-scrollbar::-webkit-scrollbar-track {
-		background: transparent;
-	}
-	.custom-scrollbar::-webkit-scrollbar-thumb {
-		background: hsl(var(--border));
-		border-radius: 10px;
-	}
-	.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-		background: hsl(var(--muted-foreground) / 0.3);
-	}
-</style>

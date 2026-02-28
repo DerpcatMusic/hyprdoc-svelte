@@ -6,8 +6,8 @@
 
   const title = "HyprSign - Quick & Secure PDF Signing | HyprDoc";
   
-  let activeSection = $state(0);
-  const setActiveSection = (idx: number) => (activeSection = idx);
+  let activeSection = $state("hero");
+  const setActiveSection = (id: string) => { activeSection = id; };
 </script>
 
 <LandingLayout {activeSection} {setActiveSection}>

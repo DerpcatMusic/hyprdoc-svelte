@@ -1,21 +1,17 @@
 /**
  * users/mutations.ts - User Mutations
  * ════════════════════════════════════════════════════════════════════════════
- * User management mutations with manual validation.
- * TODO: Migrate to zProtectedMutation once type issues resolved.
+ * User management mutations with Zod validation.
  */
-import { v } from "convex/values";
-import { internal } from "@/convex/_generated/api";
-import type { Doc } from "@/convex/_generated/dataModel";
-import { mutation, protectedMutation, internalMutation } from "@/convex/lib/core";
-import type { TierId } from "@/convex/lib/tiers";
+import { internal } from "../_generated/api";
+import { mutation, protectedMutation, zMutation, zProtectedMutation, zInternalMutation, z, zid } from "../lib/core";
+import type { TierId } from "../lib/tiers/types";
 
 /**
  * Store or update user from WorkOS identity.
  * Called on each authenticated request to keep user data fresh.
- * Uses `mutation` (not protectedMutation) because user might not exist yet.
  */
-export const store = mutation({
+export const store = zMutation({
 	args: {},
 	handler: async (ctx) => {
 		const identity = await ctx.auth.getUserIdentity();
@@ -136,21 +132,17 @@ export const store = mutation({
 /**
  * Update user branding settings.
  */
-export const updateBranding = protectedMutation({
+export const updateBranding = zProtectedMutation({
 	args: {
-		brandLogoUrl: v.optional(v.string()),
-		brandLogoPosition: v.optional(
-			v.union(v.literal("left"), v.literal("center"), v.literal("right")),
-		),
-		brandEnabled: v.optional(v.boolean()),
-		brandLogoColor: v.optional(v.string()),
-		clockEnabled: v.optional(v.boolean()),
-		clockOpacity: v.optional(v.number()),
-		clockSize: v.optional(v.string()),
-		clockPosition: v.optional(
-			v.union(v.literal("left"), v.literal("center"), v.literal("right")),
-		),
-		corporateModeEnabled: v.optional(v.boolean()),
+		brandLogoUrl: z.string().optional(),
+		brandLogoPosition: z.enum(["left", "center", "right"]).optional(),
+		brandEnabled: z.boolean().optional(),
+		brandLogoColor: z.string().optional(),
+		clockEnabled: z.boolean().optional(),
+		clockOpacity: z.number().optional(),
+		clockSize: z.string().optional(),
+		clockPosition: z.enum(["left", "center", "right"]).optional(),
+		corporateModeEnabled: z.boolean().optional(),
 	},
 	handler: async (ctx, args) => {
 		const user = await ctx.db.get(ctx.user._id);
@@ -201,28 +193,22 @@ export const updateBranding = protectedMutation({
 /**
  * Update user's default document settings.
  */
-export const updateDefaultDocumentSettings = protectedMutation({
+export const updateDefaultDocumentSettings = zProtectedMutation({
 	args: {
-		defaultPaperTexture: v.optional(v.string()),
-		defaultPaperTextureOpacity: v.optional(v.number()),
-		defaultShowMargins: v.optional(v.boolean()),
-		defaultMarginVertical: v.optional(v.number()),
-		defaultMarginHorizontal: v.optional(v.number()),
+		defaultPaperTexture: z.string().optional(),
+		defaultPaperTextureOpacity: z.number().optional(),
+		defaultShowMargins: z.boolean().optional(),
+		defaultMarginVertical: z.number().optional(),
+		defaultMarginHorizontal: z.number().optional(),
 	},
 	handler: async (ctx, args) => {
-		const updates: Partial<Doc<"users">> = {};
-		if (args.defaultPaperTexture !== undefined)
-			updates.defaultPaperTexture = args.defaultPaperTexture;
-		if (args.defaultPaperTextureOpacity !== undefined)
-			updates.defaultPaperTextureOpacity = args.defaultPaperTextureOpacity;
-		if (args.defaultShowMargins !== undefined)
-			updates.defaultShowMargins = args.defaultShowMargins;
-		if (args.defaultMarginVertical !== undefined)
-			updates.defaultMarginVertical = args.defaultMarginVertical;
-		if (args.defaultMarginHorizontal !== undefined)
-			updates.defaultMarginHorizontal = args.defaultMarginHorizontal;
-
-		await ctx.db.patch(ctx.user._id, updates);
+		await ctx.db.patch(ctx.user._id, {
+			...(args.defaultPaperTexture !== undefined && { defaultPaperTexture: args.defaultPaperTexture }),
+			...(args.defaultPaperTextureOpacity !== undefined && { defaultPaperTextureOpacity: args.defaultPaperTextureOpacity }),
+			...(args.defaultShowMargins !== undefined && { defaultShowMargins: args.defaultShowMargins }),
+			...(args.defaultMarginVertical !== undefined && { defaultMarginVertical: args.defaultMarginVertical }),
+			...(args.defaultMarginHorizontal !== undefined && { defaultMarginHorizontal: args.defaultMarginHorizontal }),
+		});
 
 		await ctx.scheduler.runAfter(0, internal.auditLogs.mutations.log, {
 			workosId: ctx.user._id,
@@ -241,9 +227,9 @@ export const updateDefaultDocumentSettings = protectedMutation({
 /**
  * Accept Terms of Service.
  */
-export const acceptTerms = protectedMutation({
+export const acceptTerms = zProtectedMutation({
 	args: {
-		version: v.string(),
+		version: z.string(),
 	},
 	handler: async (ctx, { version }) => {
 		await ctx.db.patch(ctx.user._id, {
@@ -268,17 +254,17 @@ export const acceptTerms = protectedMutation({
 /**
  * Complete user onboarding flow.
  */
-export const completeOnboarding = protectedMutation({
+export const completeOnboarding = zProtectedMutation({
 	args: {
-		firstName: v.string(),
-		lastName: v.string(),
-		companyName: v.string(),
-		role: v.string(),
-		currentERP: v.string(),
-		employeeCount: v.string(),
-		brandLogoUrl: v.optional(v.string()),
-		brandLogoColor: v.optional(v.string()),
-		agentTone: v.union(v.literal('casual'), v.literal('professional'), v.literal('friendly')),
+		firstName: z.string(),
+		lastName: z.string(),
+		companyName: z.string(),
+		role: z.string(),
+		currentERP: z.string(),
+		employeeCount: z.string(),
+		brandLogoUrl: z.string().optional(),
+		brandLogoColor: z.string().optional(),
+		agentTone: z.enum(['casual', 'professional', 'friendly']),
 	},
 	handler: async (ctx, args) => {
 		const user = await ctx.db.get(ctx.user._id);
@@ -321,12 +307,12 @@ export const completeOnboarding = protectedMutation({
  * Internal mutation: Create user from WorkOS Webhook
  * Handles checking for pending subscriptions and merging them.
  */
-export const createFromWebhook = internalMutation({
+export const createFromWebhook = zInternalMutation({
 	args: {
-		workosId: v.string(),
-		email: v.string(),
-		name: v.optional(v.string()),
-		imageUrl: v.optional(v.string()),
+		workosId: z.string(),
+		email: z.string().email(),
+		name: z.string().optional(),
+		imageUrl: z.string().optional(),
 	},
 	handler: async (ctx, args) => {
 		// 1. Check if user already exists
@@ -383,12 +369,12 @@ export const createFromWebhook = internalMutation({
 /**
  * Internal mutation: Update user from WorkOS Webhook
  */
-export const updateFromWebhook = internalMutation({
+export const updateFromWebhook = zInternalMutation({
 	args: {
-		workosId: v.string(),
-		email: v.string(),
-		name: v.optional(v.string()),
-		imageUrl: v.optional(v.string()),
+		workosId: z.string(),
+		email: z.string().email(),
+		name: z.string().optional(),
+		imageUrl: z.string().optional(),
 	},
 	handler: async (ctx, args) => {
 		const user = await ctx.db
@@ -415,9 +401,9 @@ export const updateFromWebhook = internalMutation({
 /**
  * Internal mutation: Delete user from WorkOS Webhook
  */
-export const deleteByWorkosId = internalMutation({
+export const deleteByWorkosId = zInternalMutation({
 	args: {
-		workosId: v.string(),
+		workosId: z.string(),
 	},
 	handler: async (ctx, args) => {
 		const user = await ctx.db
@@ -432,5 +418,87 @@ export const deleteByWorkosId = internalMutation({
 
 		await ctx.db.delete(user._id);
 		return user._id;
+	},
+});
+
+/**
+ * Unified settings update - Profile, Branding, and Doc Defaults
+ * Used by the Settings page to save all user preferences at once.
+ */
+export const updateSettings = zProtectedMutation({
+	args: {
+		// Profile / Auto-Fill
+		firstName: z.string().optional(),
+		lastName: z.string().optional(),
+		companyName: z.string().optional(),
+		jobTitle: z.string().optional(),
+		phoneNumber: z.string().optional(),
+		physicalAddress: z.string().optional(),
+		city: z.string().optional(),
+		state: z.string().optional(),
+		zipCode: z.string().optional(),
+		// Branding
+		brandLogoUrl: z.string().optional(),
+		brandLogoColor: z.string().optional(),
+		brandLogoPosition: z.enum(["left", "center", "right"]).optional(),
+		brandEnabled: z.boolean().optional(),
+		agentTone: z.enum(["casual", "professional", "friendly"]).optional(),
+		// Document Defaults
+		defaultPaperTexture: z.string().optional(),
+		defaultPaperTextureOpacity: z.number().optional(),
+		defaultShowMargins: z.boolean().optional(),
+	},
+	handler: async (ctx, args) => {
+		const user = await ctx.db.get(ctx.user._id);
+		if (!user) throw new Error("User not found");
+
+		// Build auto-fill profile update
+		const currentProfile = user.autoFillProfile ?? {};
+		const updatedProfile = {
+			...currentProfile,
+			...(args.firstName !== undefined && { firstName: args.firstName }),
+			...(args.lastName !== undefined && { lastName: args.lastName }),
+			...(args.firstName !== undefined || args.lastName !== undefined) && {
+				fullName: `${args.firstName ?? currentProfile.firstName ?? ""} ${args.lastName ?? currentProfile.lastName ?? ""}`.trim(),
+			},
+			...(args.companyName !== undefined && { companyName: args.companyName }),
+			...(args.jobTitle !== undefined && { jobTitle: args.jobTitle }),
+			...(args.phoneNumber !== undefined && { phoneNumber: args.phoneNumber }),
+			...(args.physicalAddress !== undefined && { physicalAddress: args.physicalAddress }),
+			...(args.city !== undefined && { city: args.city }),
+			...(args.state !== undefined && { state: args.state }),
+			...(args.zipCode !== undefined && { zipCode: args.zipCode }),
+		};
+
+		// Build full name for display
+		const fullName = updatedProfile.fullName || `${args.firstName ?? ""} ${args.lastName ?? ""}`.trim();
+
+		await ctx.db.patch(ctx.user._id, {
+			// Profile
+			...(fullName && { name: fullName }),
+			autoFillProfile: updatedProfile,
+			// Branding
+			...(args.brandLogoUrl !== undefined && { brandLogoUrl: args.brandLogoUrl }),
+			...(args.brandLogoColor !== undefined && { brandLogoColor: args.brandLogoColor }),
+			...(args.brandLogoPosition !== undefined && { brandLogoPosition: args.brandLogoPosition }),
+			...(args.brandEnabled !== undefined && { brandEnabled: args.brandEnabled }),
+			...(args.agentTone !== undefined && { agentTone: args.agentTone }),
+			// Document Defaults
+			...(args.defaultPaperTexture !== undefined && { defaultPaperTexture: args.defaultPaperTexture }),
+			...(args.defaultPaperTextureOpacity !== undefined && { defaultPaperTextureOpacity: args.defaultPaperTextureOpacity }),
+			...(args.defaultShowMargins !== undefined && { defaultShowMargins: args.defaultShowMargins }),
+		});
+
+		await ctx.scheduler.runAfter(0, internal.auditLogs.mutations.log, {
+			workosId: ctx.user._id,
+			actorType: "user" as const,
+			resourceType: "user" as const,
+			resourceId: ctx.user._id,
+			action: "user.settings_updated",
+			level: "info" as const,
+			metadata: { ...args },
+		});
+
+		return null;
 	},
 });

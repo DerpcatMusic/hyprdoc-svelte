@@ -3,16 +3,14 @@
  * ════════════════════════════════════════════════════════════════════════════
  * Manages document members and collaborators.
  */
-import { v } from "convex/values";
-import { query } from "../lib/core";
-import type { Id } from "../_generated/dataModel";
+import { zQuery, zid } from "../lib/core";
 
 /**
  * Get all collaborators for a document, including owner and members.
  */
-export const getCollaborators = query({
+export const getCollaborators = zQuery({
 	args: {
-		documentId: v.id("documents"),
+		documentId: zid("documents"),
 	},
 	handler: async (ctx, args) => {
 		const doc = await ctx.db.get(args.documentId);

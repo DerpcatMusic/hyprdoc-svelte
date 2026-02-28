@@ -10,6 +10,7 @@ import {
 } from "unocss";
 import { presetAnimations } from "unocss-preset-animations";
 import { presetShadcn } from "unocss-preset-shadcn";
+import { presetHyprdoc } from "./src/lib/styles/preset-hyprdoc";
 
 export default defineConfig({
   content: {
@@ -23,12 +24,12 @@ export default defineConfig({
     },
   },
   presets: [
-    presetWind4() as any,
-    presetAnimations() as any,
+    presetWind4(),
+    presetAnimations(),
     presetShadcn({
       color: "slate",
-      radius: 0.5,
-    }) as any,
+      radius: 0.75,
+    }),
     presetIcons({
       prefix: "i-",
       scale: 1.2,
@@ -45,6 +46,8 @@ export default defineConfig({
     }),
     presetAttributify(),
     presetTagify(),
+    // Custom Preset (Last to override)
+    presetHyprdoc() as any,
   ],
 
   transformers: [
@@ -54,72 +57,4 @@ export default defineConfig({
     transformerVariantGroup(),
   ],
   extractors: [extractorSvelte()],
-
-  shortcuts: [
-    {
-      // Brand & UI Shortcuts
-      "brand-gradient": "bg-primary text-primary-foreground",
-      "glass-card":
-        "bg-card border-none shadow-sm",
-
-      // Animation shortcuts
-      "animate-fade-in-up": "animate-fade-in animate-slide-in-up animate-duration-500",
-      "animate-bounce-slow": "animate-bounce animate-duration-2000",
-      "animate-shimmer-slide": "animate-shimmer animate-slide-in-right",
-      "animate-in": "animate-fade-in animate-duration-200 animate-ease-out",
-      "animate-out": "animate-fade-out animate-duration-200 animate-ease-in",
-    },
-  ],
-
-  theme: {
-    fontFamily: {
-      sans: "var(--font-alpino), ui-sans-serif, system-ui, sans-serif",
-      display: "var(--font-zodiak), serif",
-      serif: "var(--font-sentient), serif",
-      mono: "JetBrains Mono, monospace",
-    },
-    colors: {
-      background: "var(--background)",
-      foreground: "var(--foreground)",
-      card: "var(--card)",
-      "card-foreground": "var(--card-foreground)",
-      popover: "var(--popover)",
-      "popover-foreground": "var(--popover-foreground)",
-      primary: "var(--primary)",
-      "primary-foreground": "var(--primary-foreground)",
-      secondary: "var(--secondary)",
-      "secondary-foreground": "var(--secondary-foreground)",
-      muted: "var(--muted)",
-      "muted-foreground": "var(--muted-foreground)",
-      accent: "var(--accent)",
-      "accent-foreground": "var(--accent-foreground)",
-      destructive: "var(--destructive)",
-      "destructive-foreground": "var(--destructive-foreground)",
-      border: "var(--border)",
-      input: "var(--input)",
-      ring: "var(--ring)",
-      sidebar: "var(--sidebar)",
-      "sidebar-foreground": "var(--sidebar-foreground)",
-      "sidebar-primary": "var(--sidebar-primary)",
-      "sidebar-primary-foreground": "var(--sidebar-primary-foreground)",
-      "sidebar-accent": "var(--sidebar-accent)",
-      "sidebar-accent-foreground": "var(--sidebar-accent-foreground)",
-      "sidebar-border": "var(--sidebar-border)",
-      "sidebar-ring": "var(--sidebar-ring)",
-    },
-    borderRadius: {
-      lg: "var(--radius)",
-      md: "calc(var(--radius) - 2px)",
-      sm: "calc(var(--radius) - 4px)",
-    },
-    // Tailwind v4 parity screens if needed
-    screens: {
-      xs: "480px",
-      sm: "640px",
-      md: "768px",
-      lg: "1024px",
-      xl: "1280px",
-      "2xl": "1536px",
-    },
-  },
 });

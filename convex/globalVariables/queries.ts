@@ -4,9 +4,7 @@
  * Optimized queries using listForDocumentHelper for unified variable lists.
  */
 
-import { v } from "convex/values";
-import { query } from "@/convex/_generated/server";
-import { protectedQuery } from "@/convex/lib/core";
+import { zQuery, zProtectedQuery, z, zid } from "../lib/core";
 import { listForDocumentHelper } from "./logic";
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -17,9 +15,9 @@ import { listForDocumentHelper } from "./logic";
  * List all variables available for a document.
  * Merges: system + signer-indexed + user + document scoped variables.
  */
-export const listForDocument = query({
+export const listForDocument = zQuery({
 	args: {
-		documentId: v.optional(v.id("documents")),
+		documentId: zid("documents").optional(),
 	},
 	handler: async (ctx, args) => listForDocumentHelper(ctx, args),
 });
@@ -28,12 +26,12 @@ export const listForDocument = query({
  * Search variables by name or display name.
  * Used by autocomplete and sidebar panel.
  */
-export const search = query({
+export const search = zQuery({
 	args: {
-		query: v.optional(v.string()),
-		documentId: v.optional(v.id("documents")),
-		category: v.optional(v.string()),
-		limit: v.optional(v.number()),
+		query: z.string().optional(),
+		documentId: zid("documents").optional(),
+		category: z.string().optional(),
+		limit: z.number().optional(),
 	},
 	handler: async (ctx, args) => {
 		const allVars = await listForDocumentHelper(ctx, {
@@ -68,10 +66,10 @@ export const search = query({
  * Get a single variable by name.
  * Used for resolving {{variable}} in documents.
  */
-export const getByName = query({
+export const getByName = zQuery({
 	args: {
-		name: v.string(),
-		documentId: v.optional(v.id("documents")),
+		name: z.string(),
+		documentId: zid("documents").optional(),
 	},
 	handler: async (ctx, args) => {
 		const allVars = await listForDocumentHelper(ctx, {
@@ -84,9 +82,9 @@ export const getByName = query({
 /**
  * Get a single variable by ID.
  */
-export const get = protectedQuery({
+export const get = zProtectedQuery({
 	args: {
-		id: v.id("globalVariables"),
+		id: zid("globalVariables"),
 	},
 	handler: async (ctx, args) => {
 		return ctx.db.get(args.id);
@@ -96,7 +94,7 @@ export const get = protectedQuery({
 /**
  * List user-scoped variables only (for settings page).
  */
-export const listUserVariables = protectedQuery({
+export const listUserVariables = zProtectedQuery({
 	args: {},
 	handler: async (ctx) => {
 		return ctx.db
@@ -110,9 +108,9 @@ export const listUserVariables = protectedQuery({
 /**
  * List all variable categories with counts.
  */
-export const listCategories = query({
+export const listCategories = zQuery({
 	args: {
-		documentId: v.optional(v.id("documents")),
+		documentId: zid("documents").optional(),
 	},
 	handler: async (ctx, args) => {
 		const allVars = await listForDocumentHelper(ctx, {

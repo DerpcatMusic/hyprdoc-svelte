@@ -29,7 +29,7 @@ export interface SealResult {
 
 /**
  * Generate the content hash for sealing.
- * This creates a cryptographic fingerprint of the document.
+ * This creates a deterministic cryptographic fingerprint of the document.
  */
 export async function generateSealHash(ctx: SealingContext): Promise<string> {
   const contentToHash = JSON.stringify({
@@ -37,7 +37,6 @@ export async function generateSealHash(ctx: SealingContext): Promise<string> {
     content: ctx.content,
     blocks: ctx.blocks,
     settings: ctx.settings,
-    timestamp: Date.now(),
   });
 
   return await hashContent(contentToHash);

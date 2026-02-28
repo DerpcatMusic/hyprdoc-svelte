@@ -16,6 +16,7 @@
 
 import { Extension, Mark, mergeAttributes } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { TRACK_CHANGE_COLORS } from "$lib/styles/ui-palette";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Marks for tracking changes
@@ -36,7 +37,7 @@ export const InsertionMark = Mark.create({
         default: null,
       },
       authorColor: {
-        default: "#22c55e", // Default green
+        default: TRACK_CHANGE_COLORS.insertion,
       },
       timestamp: {
         default: null,
@@ -57,7 +58,7 @@ export const InsertionMark = Mark.create({
       mergeAttributes(HTMLAttributes, {
         "data-insertion": "",
         class: "track-change-insertion",
-        style: `color: ${HTMLAttributes.authorColor || "#22c55e"}; text-decoration: underline;`,
+        style: `color: ${HTMLAttributes.authorColor || TRACK_CHANGE_COLORS.insertion}; text-decoration: underline;`,
         title: `Added by ${HTMLAttributes.authorName || "Unknown"}`,
       }),
       0,
@@ -80,7 +81,7 @@ export const DeletionMark = Mark.create({
         default: null,
       },
       authorColor: {
-        default: "#ef4444", // Default red
+        default: TRACK_CHANGE_COLORS.deletion,
       },
       timestamp: {
         default: null,
@@ -101,7 +102,7 @@ export const DeletionMark = Mark.create({
       mergeAttributes(HTMLAttributes, {
         "data-deletion": "",
         class: "track-change-deletion",
-        style: `color: ${HTMLAttributes.authorColor || "#ef4444"}; text-decoration: line-through;`,
+        style: `color: ${HTMLAttributes.authorColor || TRACK_CHANGE_COLORS.deletion}; text-decoration: line-through;`,
         title: `Deleted by ${HTMLAttributes.authorName || "Unknown"}`,
       }),
       0,
@@ -165,7 +166,7 @@ export const TrackChangesExtension = Extension.create<TrackChangesOptions>({
       enabled: false,
       authorId: undefined,
       authorName: "Assistant",
-      authorColor: "#6366f1", // Indigo default
+      authorColor: TRACK_CHANGE_COLORS.author,
       onStatusChange: undefined,
       onChangeCreated: undefined,
     };
@@ -415,7 +416,7 @@ export const TrackChangesExtension = Extension.create<TrackChangesOptions>({
                   newContent: content,
                   position: newStart,
                   authorName: authorName ?? "Unknown",
-                  authorColor: authorColor ?? "#6366f1",
+                  authorColor: authorColor ?? TRACK_CHANGE_COLORS.author,
                 });
               }
 
@@ -432,7 +433,7 @@ export const TrackChangesExtension = Extension.create<TrackChangesOptions>({
                   originalContent,
                   position: oldStart,
                   authorName: authorName ?? "Unknown",
-                  authorColor: authorColor ?? "#6366f1",
+                  authorColor: authorColor ?? TRACK_CHANGE_COLORS.author,
                 });
               }
             });

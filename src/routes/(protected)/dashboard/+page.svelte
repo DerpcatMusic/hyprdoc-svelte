@@ -8,6 +8,7 @@
   import DocumentsList from "$lib/components/dashboard/DocumentsList.svelte";
   import EnvelopeTable from "$lib/components/dashboard/EnvelopeTable.svelte";
   import InstanceDashboard from "$lib/components/dashboard/InstanceDashboard.svelte";
+  import SettingsView from "$lib/components/dashboard/SettingsView.svelte";
   import { Spinner } from "$lib/components/ui/spinner";
   import { uiStore } from "$lib/stores/ui-store.svelte";
   import type { PageData } from "./$types";
@@ -91,6 +92,13 @@
       goto(`/editor/${id}`);
     } catch (error) {
       console.error("Failed to create document:", error);
+      
+      // Handle auth errors by refreshing the page to re-authenticate
+      if (error instanceof Error && error.message.includes("Authentication required")) {
+        console.log("Auth lost - refreshing to re-authenticate...");
+        window.location.reload();
+        return;
+      }
     }
   }
 
@@ -172,16 +180,10 @@
                 onDelete={(id) => client.mutation(api.documents.mutations.delete.remove, { documentId: id as any })}
               />
             {:else if uiStore.dashboardView === 'settings'}
-              <div
-                class="flex h-64 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-muted-foreground/20 bg-muted/5"
-              >
-                <span class="i-lucide-settings w-10 h-10 text-muted-foreground/40"></span>
-                <p class="text-muted-foreground font-medium">Settings</p>
-                <p class="text-muted-foreground/60 text-sm">Coming soon</p>
-              </div>
+              <SettingsView />
             {:else}
               <div
-                class="flex h-64 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-muted-foreground/20 bg-muted/5"
+                class="flex h-64 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border bg-card"
               >
                 <span
                   class="i-lucide-construction w-10 h-10 text-muted-foreground/40"

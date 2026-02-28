@@ -1,4 +1,7 @@
 import { Editor, type AnyExtension, type JSONContent } from "@tiptap/core";
+import { AlignmentPlugin } from "./AlignmentPlugin";
+import { editorState } from "./editor-state.svelte";
+import { uiStore } from "$lib/stores/ui-store.svelte";
 import { setContext, getContext, onDestroy, untrack } from "svelte";
 import { FiniteStateMachine, useDebounce } from "runed";
 import { browser } from "$app/environment";
@@ -10,9 +13,11 @@ import {
   type DocumentSettings 
 } from "@/convex/domains/settings";
 
+import { partyStore } from "./party-store.svelte";
+
 const BRAIN_KEY = Symbol("EDITOR_BRAIN");
 
-export type EditorMode = "builder" | "preview";
+export type EditorMode = "edit" | "sign";
 export type CollabStatus = "disconnected" | "connecting" | "connected";
 export type SaveStates = "idle" | "waiting" | "saving" | "error";
 export type SaveEvents = "CHANGE" | "TIMEOUT" | "SUCCESS" | "FAILURE";
@@ -23,7 +28,8 @@ export class EditorBrain {
   doc = $state<Doc<"documents"> | null>(null);
   
   // ━━━ UX STATE ━━━
-  mode = $state<EditorMode>("builder");
+  mode = $state<EditorMode>("edit");
+  isPreview = $state(false); // Non-persistent sign mode (testing)
   isMobile = $state(false);
   sidebarOpen = $state(true);
   isFocused = $state(false);
@@ -36,10 +42,12 @@ export class EditorBrain {
   #selectionTrigger = $state(0);
   selection = $state({ from: 0, to: 0 });
   selectedBlockId = $state<string | null>(null);
+  updateCount = $state(0);
 
   // ━━━ PERSISTENCE STATE ━━━
   #convexClient = $state<any>(null);
   #documentId = $state<Id<"documents"> | null>(null);
+  #previewSnapshot = $state<JSONContent | null>(null);
   saveMachine = new FiniteStateMachine<SaveStates, SaveEvents>("idle", {
     idle: { CHANGE: "waiting" },
     waiting: { TIMEOUT: "saving", CHANGE: "waiting" },
@@ -49,15 +57,47 @@ export class EditorBrain {
 
   #triggerSave = $state<() => void>(() => {});
 
+  // ━━━ DESIGN MODE STATE ━━━
+  showRulers = $state(true);
+  snapToElements = $state(true); // Snap to text blocks, lines, centers
+  snapThreshold = $state(5);
+  
+  // Alignment guides (populated during drag/resize operations)
+  alignmentGuides = $state<Array<{
+    id: string;
+    type: 'horizontal' | 'vertical';
+    position: number;
+    start: number;
+    end: number;
+    isCenter?: boolean;
+  }>>([]);
 
-
-  // ━━━ DERIVED / COMPUTED ━━━
-  get isEditable() {
-    return this.mode === "builder" && (this.editor?.isEditable ?? true);
+  toggleRulers() {
+    this.showRulers = !this.showRulers;
   }
 
-  get isConsumer() {
-    return this.mode === "preview";
+  clearAlignmentGuides() {
+    this.alignmentGuides = [];
+  }
+
+  setAlignmentGuides(guides: typeof this.alignmentGuides) {
+    this.alignmentGuides = guides;
+  }
+  // ━━━ DERIVED / COMPUTED ━━━
+  get isEditing(): boolean {
+    return this.mode === "edit";
+  }
+
+  get isSigning(): boolean {
+    return this.mode === "sign";
+  }
+
+  get isEditable(): boolean {
+    return this.mode === "edit" && (this.editor?.isEditable ?? true);
+  }
+
+  get canPersist(): boolean {
+    return !this.isPreview;
   }
 
   get documentId(): Id<"documents"> | undefined {
@@ -154,6 +194,14 @@ export class EditorBrain {
     this.#selectionTrigger;
     return this.editor?.getAttributes("highlight")?.color;
   }
+  get canUndo() {
+    this.#selectionTrigger;
+    return this.editor?.can().undo() ?? false;
+  }
+  get canRedo() {
+    this.#selectionTrigger;
+    return this.editor?.can().redo() ?? false;
+  }
 
   constructor(initialDoc?: Doc<"documents">) {
     if (initialDoc) this.doc = initialDoc;
@@ -166,10 +214,11 @@ export class EditorBrain {
       }
     }, 2000);
 
-    // Watch for title/settings changes
+    // Watch for title/settings/parties changes
     $effect(() => {
       const _t = this.title;
       const _s = this.settings;
+      const _p = partyStore.parties;
       untrack(() => {
         if (browser && this.editor) this.handleStateChange();
       });
@@ -192,6 +241,7 @@ export class EditorBrain {
   }
 
   handleStateChange() {
+    // If partyStore is updated, this should also trigger
     if (this.saveMachine.current === "idle" || this.saveMachine.current === "error") {
       this.saveMachine.send("CHANGE");
     }
@@ -207,19 +257,37 @@ export class EditorBrain {
 
     this.editor = new Editor({
       element,
-      extensions,
+      extensions: [
+        ...extensions,
+        // AlignmentPlugin returns a ProseMirror Plugin, cast to satisfy TypeScript
+        AlignmentPlugin({ brain: this, editor: this.editor as any }) as unknown as AnyExtension,
+      ],
       content,
-      editable: this.mode === "builder",
-      onTransaction: ({ transaction }) => {
+      editable: this.mode === "edit",
+      onTransaction: ({ transaction, editor }) => {
         untrack(() => {
           this.#selectionTrigger++;
           this.selection = {
             from: transaction.selection.from,
             to: transaction.selection.to,
           };
+          
+          // Detect if a block is selected and auto-switch tab
+          const { from } = transaction.selection;
+          const node = editor.state.doc.nodeAt(from);
+          if (node?.type.name === "hyprDocBlock") {
+            const blockId = node.attrs.id;
+            if (this.selectedBlockId !== blockId) {
+              this.selectedBlockId = blockId;
+              uiStore.setPropertiesTab("block");
+            }
+          } else {
+            this.selectedBlockId = null;
+          }
         });
       },
       onUpdate: () => {
+        this.updateCount++;
         this.handleStateChange();
       },
       onFocus: () => { this.isFocused = true; },
@@ -240,6 +308,7 @@ export class EditorBrain {
         content,
         title,
         settings, 
+        parties: partyStore.parties
       });
       this.saveMachine.send("SUCCESS");
     } catch (err: unknown) {
@@ -255,11 +324,51 @@ export class EditorBrain {
 
   setDoc(doc: Doc<"documents">) {
     this.doc = doc;
+    if (doc.parties) {
+      partyStore.setParties(doc.parties as any[]);
+    }
   }
 
-  toggleMode() {
-    this.mode = this.mode === "builder" ? "preview" : "builder";
-    this.editor?.setEditable(this.mode === "builder");
+  toggleMode(): void {
+    this.mode = this.mode === "edit" ? "sign" : "edit";
+    editorState.setMode(this.mode);
+    this.editor?.setEditable(this.mode === "edit");
+  }
+
+  /** Enter preview mode - snapshot content for restore on exit */
+  enterPreview(): void {
+    // Snapshot current content before entering preview
+    if (this.editor) {
+      this.#previewSnapshot = this.editor.getJSON();
+    }
+    this.mode = "sign";
+    this.isPreview = true;
+    editorState.setMode("sign");
+    editorState.setPreview(true);
+    this.editor?.setEditable(false);
+  }
+
+  /** Exit preview mode - restore content to discard any preview changes */
+  exitPreview(): void {
+    // Restore content from snapshot to discard preview changes
+    if (this.editor && this.#previewSnapshot) {
+      this.editor.commands.setContent(this.#previewSnapshot);
+      this.#previewSnapshot = null;
+    }
+    this.mode = "edit";
+    this.isPreview = false;
+    editorState.setMode("edit");
+    editorState.setPreview(false);
+    this.editor?.setEditable(true);
+  }
+
+  /** Enter sign mode (with persistence) */
+  enterSignMode(): void {
+    this.mode = "sign";
+    this.isPreview = false;
+    editorState.setMode("sign");
+    editorState.setPreview(false);
+    this.editor?.setEditable(false);
   }
 
   // Public method for updating settings
@@ -308,8 +417,13 @@ export class EditorBrain {
   toggleSuperscript() { this.editor?.chain().focus().toggleSuperscript().run(); }
   setTextAlign(align: string) { this.editor?.chain().focus().setTextAlign(align).run(); }
   setHighlight(color?: string) {
-    if (color) this.editor?.chain().focus().setHighlight({ color }).run();
-    else this.editor?.chain().focus().unsetHighlight().run();
+    if (color) {
+      this.editor?.chain().focus().setHighlight({ color }).run();
+    } else {
+      this.editor?.chain().focus().unsetHighlight().run();
+    }
+    // Force a state change to ensure saving even if the mark was already gone
+    this.handleStateChange();
   }
   setFontSize(size: number) { this.editor?.commands.setFontSize(size.toString()); }
   setFontWeight(weight: number) { this.editor?.commands.setFontWeight(weight.toString()); }

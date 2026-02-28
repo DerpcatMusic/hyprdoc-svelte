@@ -133,7 +133,7 @@
 			'group relative flex aspect-210/297 w-full cursor-pointer flex-col items-center justify-center gap-4 rounded-xl border border-dashed transition-all',
 			isDragging
 				? 'scale-105 border-primary bg-primary/10 shadow-[0_0_30px_-5px_hsl(var(--primary)/0.6)] ring-4 ring-primary/20'
-				: 'border-border bg-transparent hover:border-primary hover:bg-muted/50 hover:shadow-lg',
+				: 'border-border bg-card hover:border-primary hover:bg-muted hover:shadow-lg',
 			importState === 'loading' && 'cursor-wait opacity-80'
 		)}
   >
@@ -206,7 +206,7 @@
 {#if documents.length === 0 && searchQuery}
   <div
     transition:fade
-    class="flex h-64 flex-col items-center justify-center gap-4 rounded-3xl border border-muted-foreground/20 border-dashed bg-muted/5"
+    class="flex h-64 flex-col items-center justify-center gap-4 rounded-3xl border border-border border-dashed bg-card"
   >
     <p class="text-muted-foreground text-sm">
       No documents found matching "{searchQuery}"
@@ -221,7 +221,7 @@
 {#if selectedIds.size > 0}
   <div
     transition:slide={{ axis: 'y' }}
-    class="fixed bottom-8 left-1/2 z-50 flex -translate-x-1/2 items-center gap-6 rounded-full border border-border/40 bg-background/95 px-6 py-3 shadow-2xl"
+    class="fixed bottom-8 left-1/2 z-50 flex -translate-x-1/2 items-center gap-6 rounded-full border border-border bg-background px-6 py-3 shadow-2xl"
   >
     <div class="flex items-center gap-3 border-border/20 border-r pr-6">
       <span
@@ -236,7 +236,7 @@
       <Button
         variant="ghost"
         size="sm"
-        class="gap-2 text-red-500 hover:bg-red-500/10 hover:text-red-600"
+        class="gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
       >
         <span class="i-lucide-trash-2 w-4 h-4"></span>
         Delete

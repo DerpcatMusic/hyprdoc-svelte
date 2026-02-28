@@ -2,13 +2,12 @@
  * ai/mutations.ts - AI Usage Trackers
  * ════════════════════════════════════════════════════════════════════════════
  */
-import { v } from "convex/values";
-import { protectedMutation } from "../lib/core";
+import { zProtectedMutation } from "../lib/core";
 
 /**
  * Increment AI generation count for the current user.
  */
-export const incrementGeneration = protectedMutation({
+export const incrementGeneration = zProtectedMutation({
   args: {},
   handler: async (ctx) => {
     const user = await ctx.db.get(ctx.user._id);

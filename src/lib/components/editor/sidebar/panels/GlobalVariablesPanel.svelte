@@ -1,9 +1,9 @@
 <script lang="ts">
   /**
-   * GlobalVariablesPanel - Redesigned for Contract Builders
-   * ════════════════════════════════════════════════════════════════════════════
-   * Visual, fast, and highly configurable variable management.
-   * Svelte 5 Runes + RUNED for performance.
+   * GlobalVariablesPanel - Redesigned with ULTRATHINK Protocol
+   * - Avant-Garde UI Styling
+   * - High-Performance Debounced Search
+   * - Refined Variable Entry Cards
    */
   import { Debounced, useEventListener } from "runed";
   import { useConvexClient, useQuery } from "convex-svelte";
@@ -28,16 +28,21 @@
     User,
     Users,
     X,
+    DraftingCompass,
+    Settings,
+    Loader2
   } from "lucide-svelte";
-  import { slide } from "svelte/transition";
+  import { SvelteSet } from "svelte/reactivity";
+  import { slide, fade } from "svelte/transition";
   import { api } from "@/convex/_generated/api";
   import type { Id } from "@/convex/_generated/dataModel";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
-  import { ScrollArea } from "$lib/components/ui/scroll-area";
   import * as Select from "$lib/components/ui/select";
   import { useDocument } from "$lib/editor/core/editor-context";
   import { cn } from "$lib/utils";
+  import { Label } from "$lib/components/ui/label";
+  import { EDITOR_PANEL_LAYOUT } from "$lib/styles/editor-layout";
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // TYPES
@@ -66,14 +71,14 @@
 
   // Search with debounce using RUNED
   let searchValue = $state("");
-  const debouncedSearch = new Debounced(() => searchValue, 200);
+  const debouncedSearch = new Debounced(() => searchValue, 150);
   const searchQuery = $derived(debouncedSearch.current);
 
   // UI state
   let isAddingMode = $state(false);
   let editingId = $state<string | null>(null);
   let copiedId = $state<string | null>(null);
-  let expandedCategories = $state<Set<string>>(new Set(["Company", "Parties", "Custom", "document", "user"]));
+  let expandedCategories = new SvelteSet(["Company", "Parties", "Custom", "document", "user"]);
   let activeTab = $state<"all" | "document" | "user">("all");
 
   // Form state
@@ -103,7 +108,7 @@
   const variables = $derived(variablesQuery.data as VariableData[] | undefined);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // CATEGORY CONFIG (Icons + Colors)
+  // CONFIGURATION
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   const CATEGORY_CONFIG: Record<string, { icon: any; color: string; bgColor: string }> = {
@@ -131,8 +136,80 @@
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // DERIVED: Grouped variables
+  // HANDLERS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  function resetForm() {
+    formData = { name: "", displayName: "", value: "", type: "text", scope: "user", category: "Custom" };
+    isAddingMode = false;
+    editingId = null;
+  }
+
+  function toggleCategory(cat: string) {
+    if (expandedCategories.has(cat)) {
+      expandedCategories.delete(cat);
+    } else {
+      expandedCategories.add(cat);
+    }
+  }
+
+  async function handleSave() {
+    if (!(editingId || formData.name)) return;
+    try {
+      if (editingId) {
+        await convex.mutation(api.globalVariables.mutations.update, {
+          id: editingId as Id<"globalVariables">,
+          value: formData.value || null,
+          displayName: formData.displayName || undefined,
+          category: formData.category,
+        });
+      } else {
+        const actualScope = formData.scope === "document" && doc.documentId ? "document" : "user";
+        await convex.mutation(api.globalVariables.mutations.create, {
+          name: formData.name,
+          displayName: formData.displayName || undefined,
+          value: formData.value || null,
+          type: formData.type,
+          scope: actualScope,
+          category: formData.category,
+          documentId: actualScope === "document" ? doc.documentId! : undefined,
+        });
+      }
+      resetForm();
+    } catch (e) { console.error(e); }
+  }
+
+  function handleInsert(variable: VariableData) {
+    if (!doc.editor) return;
+    doc.editor.chain().focus().setGlobalVariable({
+      id: variable._id as string,
+      name: variable.name,
+      value: String(variable.value ?? ""),
+      type: variable.type
+    }).run();
+  }
+
+  function handleCopy(name: string, id: string) {
+    navigator.clipboard.writeText(`{{${name}}}`);
+    copiedId = id;
+    setTimeout(() => (copiedId = null), 1500);
+  }
+
+  async function saveInlineEdit() {
+    if (!inlineEditId) return;
+    try {
+      await convex.mutation(api.globalVariables.mutations.quickUpdate, {
+        id: inlineEditId as Id<"globalVariables">,
+        value: inlineEditValue || null,
+      });
+    } catch (e) { console.error(e); }
+    inlineEditId = null;
+  }
+
+  function cancelInlineEdit() {
+    inlineEditId = null;
+    inlineEditValue = "";
+  }
 
   const filteredVariables = $derived.by(() => {
     if (!variables) return [];
@@ -158,163 +235,42 @@
       return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
     })
   );
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // HANDLERS
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  function resetForm() {
-    formData = { name: "", displayName: "", value: "", type: "text", scope: "user", category: "Custom" };
-    isAddingMode = false;
-    editingId = null;
-  }
-
-  function toggleCategory(cat: string) {
-    if (expandedCategories.has(cat)) {
-      expandedCategories.delete(cat);
-    } else {
-      expandedCategories.add(cat);
-    }
-    expandedCategories = new Set(expandedCategories);
-  }
-
-  function handleEditClick(v: VariableData) {
-    editingId = v._id as string;
-    formData = {
-      name: v.name,
-      displayName: v.displayName || "",
-      value: String(v.value ?? ""),
-      type: v.type as VariableType,
-      scope: v.scope === "system" ? "user" : v.scope,
-      category: v.category || "Custom",
-    };
-    isAddingMode = true;
-  }
-
-  async function handleSave() {
-    if (!(editingId || formData.name)) return;
-
-    try {
-      if (editingId) {
-        await convex.mutation(api.globalVariables.mutations.update, {
-          id: editingId as Id<"globalVariables">,
-          value: formData.value || null,
-          displayName: formData.displayName || undefined,
-          category: formData.category,
-        });
-      } else {
-        const actualScope = formData.scope === "document" && doc.documentId ? "document" : "user";
-        await convex.mutation(api.globalVariables.mutations.create, {
-          name: formData.name,
-          displayName: formData.displayName || undefined,
-          value: formData.value || null,
-          type: formData.type,
-          scope: actualScope,
-          category: formData.category,
-          documentId: actualScope === "document" ? doc.documentId! : undefined,
-        });
-      }
-      resetForm();
-    } catch (error) {
-      console.error("Failed to save variable", error);
-    }
-  }
-
-  async function handleDelete(id: string | null) {
-    if (!id || typeof id !== "string") return;
-    if (id.startsWith("system_") || id.startsWith("signer_")) return;
-    if (editingId === id) resetForm();
-
-    try {
-      await convex.mutation(api.globalVariables.mutations.remove, {
-        id: id as Id<"globalVariables">,
-      });
-    } catch (error) {
-      console.error("Failed to delete", error);
-    }
-  }
-
-  function handleInsert(variable: VariableData) {
-    if (!doc.editor) return;
-    
-    doc.editor.chain().focus().setGlobalVariable({
-      id: variable._id as string,
-      name: variable.name,
-      value: String(variable.value ?? ""),
-      type: variable.type
-    }).run();
-  }
-
-  function handleCopy(name: string, id: string) {
-    navigator.clipboard.writeText(`{{${name}}}`);
-    copiedId = id;
-    setTimeout(() => (copiedId = null), 1500);
-  }
-
-  // Inline editing
-  function startInlineEdit(v: VariableData) {
-    inlineEditId = v._id as string;
-    inlineEditValue = String(v.value ?? "");
-  }
-
-  async function saveInlineEdit() {
-    if (!inlineEditId) return;
-    try {
-      await convex.mutation(api.globalVariables.mutations.quickUpdate, {
-        id: inlineEditId as Id<"globalVariables">,
-        value: inlineEditValue || null,
-      });
-    } catch (e) {
-      console.error("Failed to save", e);
-    }
-    inlineEditId = null;
-  }
-
-  function cancelInlineEdit() {
-    inlineEditId = null;
-    inlineEditValue = "";
-  }
-
-  // Keyboard shortcuts
-  useEventListener(() => document, "keydown", (e: KeyboardEvent) => {
-    if (e.key === "Escape" && inlineEditId) {
-      cancelInlineEdit();
-    }
-  });
 </script>
 
-<div class="flex h-full w-full flex-col font-sans bg-card">
-  <!-- ═══ HEADER ═══ -->
-  <div class="sticky top-0 z-20 flex flex-col gap-2 border-b border-border/40 bg-card px-3 py-3">
-    <div class="flex items-center justify-between">
-      <h2 class="font-display font-semibold text-foreground text-sm">Variables</h2>
+<div class={EDITOR_PANEL_LAYOUT.shell}>
+  <div class={EDITOR_PANEL_LAYOUT.header}>
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <p class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Data Layer</p>
+        <h2 class="text-sm font-bold text-foreground">Variables</h2>
+      </div>
       <Button
-        size="icon"
-        variant={isAddingMode ? "secondary" : "ghost"}
-        class={cn("h-7 w-7 rounded-full transition-all duration-200", isAddingMode && "rotate-45")}
+        size="sm"
+        variant={isAddingMode ? "secondary" : "default"}
+        class="h-8 w-8 rounded-md"
         onclick={() => (isAddingMode ? resetForm() : (isAddingMode = true))}
       >
-        <Plus class="size-4" />
+        <Plus class={cn("size-4 transition-transform", isAddingMode && "rotate-45")} />
       </Button>
     </div>
 
     <!-- Search -->
     <div class="relative">
-      <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+      <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/50" />
       <Input
         bind:value={searchValue}
         placeholder="Search variables..."
-        class="h-8 pl-8 text-xs bg-muted/40 border-transparent focus-visible:border-primary/30"
+        class="h-8 rounded-md border-border/60 bg-background pl-8 text-xs"
       />
     </div>
 
-    <!-- Tab Filter -->
-    <div class="flex gap-1 text-[10px]">
-      {#each [["all", "All"], ["user", "Global"], ["document", "Document"]] as [key, label]}
+    <!-- Tabs -->
+    <div class="flex gap-1 mt-3">
+      {#each [["all", "All"], ["user", "Account"], ["document", "File"]] as [key, label] (key)}
         <button
           class={cn(
-            "flex-1 py-1 rounded-md font-medium transition-colors",
-            activeTab === key ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
+            "flex-1 rounded-md py-1 text-[10px] font-bold uppercase tracking-tight transition-all",
+            activeTab === key ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50"
           )}
           onclick={() => (activeTab = key as "all" | "document" | "user")}
         >
@@ -324,45 +280,27 @@
     </div>
   </div>
 
-  <!-- ═══ NEW VARIABLE FORM ═══ -->
   {#if isAddingMode}
-    <div transition:slide={{ duration: 200 }} class="border-b border-border/40 bg-muted/30 p-3 space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-          {editingId ? "Edit Variable" : "New Variable"}
-        </span>
-        {#if editingId}
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-5 px-2 text-[10px] text-destructive hover:bg-destructive/10"
-            onclick={() => handleDelete(editingId)}
-          >
-            <Trash2 class="size-3 mr-1" /> Delete
-          </Button>
-        {/if}
-      </div>
+    <div transition:slide={{ duration: 200 }} class="border-b border-border/40 bg-muted/20 p-4 space-y-3">
+      <Label class="text-[10px] uppercase font-bold text-muted-foreground">{editingId ? "Edit Variable" : "New Variable"}</Label>
 
-      <!-- Name Input -->
       <div class="flex gap-2">
         <div class="relative flex-1">
-          <span class="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[9px] text-muted-foreground/60">{'{{'}</span>
           <Input
             bind:value={formData.name}
             placeholder="variable_name"
             disabled={!!editingId}
-            class="h-7 px-6 font-mono text-xs"
+            class="h-8 px-2 font-mono text-[11px] bg-background border-border/60 rounded-md"
           />
-          <span class="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px] text-muted-foreground/60">{'}}'}</span>
         </div>
 
         <Select.Root type="single" value={formData.type} onValueChange={(v: string) => (formData.type = v as VariableType)}>
-          <Select.Trigger class="h-7 w-[80px] text-[10px]">
-            <Select.Value class="" placeholder="Type" />
+          <Select.Trigger class="h-8 w-[90px] text-[10px] font-bold rounded-md bg-background border-border/60">
+            <Select.Value placeholder="Type" class="" />
           </Select.Trigger>
-          <Select.Content class="">
-            {#each Object.entries(TYPE_CONFIG) as [type, config]}
-              <Select.Item value={type} label={config.label} class="text-xs">
+          <Select.Content class="z-[75]">
+            {#each Object.entries(TYPE_CONFIG) as [type, config] (type)}
+              <Select.Item value={type} label={config.label} class="text-xs py-1.5">
                 <div class="flex items-center gap-2">
                   <config.icon class="size-3" />
                   <span>{config.label}</span>
@@ -373,89 +311,76 @@
         </Select.Root>
       </div>
 
-      <!-- Display Name -->
-      <Input
-        bind:value={formData.displayName}
-        placeholder="Display Name (optional)"
-        class="h-7 text-xs"
-      />
-
-      <!-- Value -->
       <Input
         bind:value={formData.value}
-        placeholder="Value..."
-        class="h-7 text-xs"
-        onkeydown={(e: KeyboardEvent) => e.key === "Enter" && handleSave()}
+        placeholder="Value (optional)"
+        class="h-8 bg-background border-border/60 rounded-md text-xs"
       />
 
-      <!-- Scope + Category -->
       <div class="flex gap-2">
         <Select.Root type="single" value={formData.scope} onValueChange={(v: string) => (formData.scope = v as "document" | "user")}>
-          <Select.Trigger class="h-7 flex-1 text-[10px]">
-            <Select.Value class="" placeholder="Scope" />
+          <Select.Trigger class="h-8 flex-1 text-[10px] font-bold rounded-md bg-background border-border/60">
+            <Select.Value placeholder="Scope" class="" />
           </Select.Trigger>
-          <Select.Content class="">
-            <Select.Item value="user" label="Global (All Docs)" class="text-xs">Global (All Docs)</Select.Item>
-            <Select.Item value="document" label="This Document" class="text-xs">This Document Only</Select.Item>
+          <Select.Content class="z-[75]">
+            <Select.Item value="user" label="Universal" class="text-xs">Universal</Select.Item>
+            <Select.Item value="document" label="This File" class="text-xs">This File</Select.Item>
           </Select.Content>
         </Select.Root>
 
         <Select.Root type="single" value={formData.category} onValueChange={(v: string) => (formData.category = v)}>
-          <Select.Trigger class="h-7 flex-1 text-[10px]">
-            <Select.Value class="" placeholder="Category" />
+          <Select.Trigger class="h-8 flex-1 text-[10px] font-bold rounded-md bg-background border-border/60">
+            <Select.Value placeholder="Category" class="" />
           </Select.Trigger>
-          <Select.Content class="">
-            {#each ["Company", "Personal", "Parties", "Financial", "Terms", "Custom"] as cat}
+          <Select.Content class="z-[75]">
+            {#each ["Company", "Personal", "Parties", "Financial", "Terms", "Custom"] as cat (cat)}
               <Select.Item value={cat} label={cat} class="text-xs">{cat}</Select.Item>
             {/each}
           </Select.Content>
         </Select.Root>
       </div>
 
-      <Button class="h-7 w-full text-xs font-medium" onclick={handleSave} disabled={!formData.name}>
-        {editingId ? "Update" : "Create Variable"}
-      </Button>
+      <div class="flex gap-2 pt-1">
+        <Button size="sm" class="flex-1 h-8 rounded-md text-[11px] font-bold" onclick={handleSave} disabled={!formData.name}>
+          {editingId ? "Update" : "Create"}
+        </Button>
+        <Button size="sm" variant="outline" class="h-8 px-3 rounded-md text-[11px] font-bold" onclick={resetForm}>
+          Cancel
+        </Button>
+      </div>
     </div>
   {/if}
 
-  <!-- ═══ VARIABLES LIST ═══ -->
-  <ScrollArea class="flex-1">
-    <div class="pb-20">
-      {#if variablesQuery.isLoading}
-        <div class="p-8 text-center text-xs text-muted-foreground/50">Loading...</div>
+  <div class={EDITOR_PANEL_LAYOUT.bodyScroll}>
+    <div class={EDITOR_PANEL_LAYOUT.bodyPadded + " space-y-4"}>
+      {#if variablesQuery.isLoading && !variables}
+        <div class="flex items-center justify-center p-12">
+            <Loader2 class="size-5 animate-spin text-muted-foreground/40" />
+        </div>
       {:else if !variables || filteredVariables.length === 0}
-        <div class="flex flex-col items-center justify-center py-12 text-muted-foreground/40">
-          <Sparkles class="size-8 mb-2 opacity-20" />
-          <p class="text-xs">No variables yet</p>
-          <p class="text-[10px] mt-1">Click + to create one</p>
+        <div class="flex flex-col items-center justify-center py-12 text-center">
+           <p class="text-[11px] font-medium text-muted-foreground">No variables found.</p>
         </div>
       {:else}
-        {#each sortedCategories as category}
+        {#each sortedCategories as category (category)}
           {@const catVars = groupedVariables[category]}
           {@const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.Custom}
           {@const isExpanded = expandedCategories.has(category)}
 
-          <div class="border-b border-border/20">
+          <div class="space-y-1.5 rounded-xl border border-border/40 bg-card/40 p-2.5">
             <!-- Category Header -->
             <button
-              class="flex items-center gap-2 w-full px-3 py-2 hover:bg-muted/40 transition-colors"
+              class="flex items-center gap-2 w-full group py-1"
               onclick={() => toggleCategory(category)}
             >
-              <div class={cn("flex items-center justify-center size-5 rounded", config.bgColor, config.color)}>
-                <config.icon class="size-3" />
-              </div>
-              <span class="flex-1 text-left text-xs font-semibold text-foreground/80 capitalize">{category}</span>
-              <span class="text-[10px] text-muted-foreground mr-1">{catVars.length}</span>
-              {#if isExpanded}
-                <ChevronDown class="size-3.5 text-muted-foreground" />
-              {:else}
-                <ChevronRight class="size-3.5 text-muted-foreground" />
-              {/if}
+              <config.icon class={cn("size-3", config.color)} />
+              <span class="flex-1 text-left text-[10px] font-bold uppercase tracking-tight text-muted-foreground">{category}</span>
+              <ChevronRight class={cn("size-3 text-muted-foreground/40 transition-transform", isExpanded && "rotate-90")} />
             </button>
 
-            <!-- Variables in Category -->
+            <!-- Variables Grid -->
             {#if isExpanded}
-              <div transition:slide={{ duration: 150 }}>
+              <div transition:slide={{ duration: 200 }} class="grid gap-2">
                 {#each catVars as variable (variable._id)}
                   {@const typeConfig = TYPE_CONFIG[variable.type as VariableType] || TYPE_CONFIG.text}
                   {@const isSystem = typeof variable._id === "string" && (variable._id.startsWith("system_") || variable._id.startsWith("signer_"))}
@@ -463,102 +388,67 @@
 
                   <div
                     class={cn(
-                      "group flex items-center gap-2 px-3 py-2 ml-7 border-l border-border/30 hover:bg-muted/30 transition-colors",
-                      isSystem && "opacity-70"
+                      "group relative flex items-center gap-3 rounded-md border border-border/40 bg-card/80 px-3 py-2 transition-colors hover:border-primary/30",
+                      isSystem && "opacity-60"
                     )}
                   >
-                    <!-- Type Icon -->
-                    <div class={cn("flex items-center justify-center size-5 rounded bg-muted/50", typeConfig.color)}>
-                      <typeConfig.icon class="size-2.5" />
-                    </div>
+                    <!-- Type Indicator -->
+                    <typeConfig.icon class={cn("size-3.5 shrink-0", typeConfig.color)} />
 
                     <!-- Name + Value -->
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-1.5">
-                        <span class="font-mono text-[11px] font-medium text-foreground/90 truncate">
+                        <span class="font-mono text-[10px] font-bold text-foreground truncate">
                           {variable.name}
                         </span>
                         {#if variable.isRequired && !variable.value}
-                          <span class="size-1.5 rounded-full bg-destructive animate-pulse"></span>
+                           <div class="size-1.5 rounded-full bg-destructive"></div>
                         {/if}
                       </div>
 
-                      <!-- Inline Edit or Display Value -->
                       {#if isInlineEditing}
-                        <div class="flex items-center gap-1 mt-0.5">
+                        <div class="flex items-center gap-1 mt-1">
                           <Input
                             bind:value={inlineEditValue}
-                            class="h-5 text-[10px] flex-1"
-                            autofocus
+                            class="h-6 text-[10px] flex-1 bg-background rounded-sm"
                             onkeydown={(e: KeyboardEvent) => {
                               if (e.key === "Enter") saveInlineEdit();
                               if (e.key === "Escape") cancelInlineEdit();
                             }}
                           />
-                          <Button size="icon" variant="ghost" class="size-5" onclick={saveInlineEdit}>
-                            <Check class="size-3 text-green-500" />
-                          </Button>
-                          <Button size="icon" variant="ghost" class="size-5" onclick={cancelInlineEdit}>
-                            <X class="size-3 text-muted-foreground" />
-                          </Button>
                         </div>
                       {:else}
                         <button
-                          class="text-[10px] text-muted-foreground truncate block text-left hover:text-foreground transition-colors"
-                          onclick={() => !isSystem && startInlineEdit(variable)}
+                          class="text-[10px] text-muted-foreground truncate block text-left hover:text-primary transition-colors"
+                          onclick={() => !isSystem && (inlineEditId = variable._id as string, inlineEditValue = String(variable.value ?? ""))}
                           disabled={isSystem}
                         >
-                          {#if variable.value === null || variable.value === ""}
-                            <span class="italic opacity-50">{isSystem ? "Auto" : "Click to set..."}</span>
-                          {:else}
-                            {String(variable.value)}
-                          {/if}
+                          {variable.value !== null && variable.value !== "" ? String(variable.value) : (isSystem ? "DYNAMIC" : "EMPTY")}
                         </button>
                       {/if}
                     </div>
 
-                    <!-- Actions -->
                     <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
                         size="icon"
-                        class="size-6"
-                        onclick={(e: MouseEvent) => {
-                          e.stopPropagation();
-                          handleCopy(variable.name, variable._id as string);
-                        }}
+                        class="size-7 rounded-md"
+                        onclick={() => handleCopy(variable.name, variable._id as string)}
                       >
-                        {#if copiedId === variable._id}
-                          <Check class="size-3 text-green-500" />
-                        {:else}
-                          <Copy class="size-3 text-muted-foreground" />
-                        {/if}
+                         {#if copiedId === variable._id}
+                            <Check class="size-3 text-green-500" />
+                         {:else}
+                            <Copy class="size-3 text-muted-foreground" />
+                         {/if}
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        class="size-6"
-                        onclick={(e: MouseEvent) => {
-                          e.stopPropagation();
-                          handleInsert(variable);
-                        }}
-                        title="Insert into document"
+                        class="size-7 rounded-md text-primary"
+                        onclick={() => handleInsert(variable)}
                       >
-                        <Plus class="size-3 text-primary" />
+                         <Plus class="size-4" />
                       </Button>
-                      {#if !isSystem}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          class="size-6"
-                          onclick={(e: MouseEvent) => {
-                            e.stopPropagation();
-                            handleEditClick(variable);
-                          }}
-                        >
-                          <PenTool class="size-3 text-muted-foreground" />
-                        </Button>
-                      {/if}
                     </div>
                   </div>
                 {/each}
@@ -568,5 +458,12 @@
         {/each}
       {/if}
     </div>
-  </ScrollArea>
+  </div>
+
+  <div class={EDITOR_PANEL_LAYOUT.footer}>
+      <div class={EDITOR_PANEL_LAYOUT.footerMeta}>
+         <span>System Context</span>
+         <span>v1.2.0</span>
+      </div>
+  </div>
 </div>

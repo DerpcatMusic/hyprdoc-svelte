@@ -1,12 +1,10 @@
-import { v } from "convex/values";
-import { query } from "@/convex/_generated/server";
+import { zQuery, z } from "../lib/core";
 
 /**
  * Get a public URL for a storage ID.
  */
-export const getFileUrl = query({
-  args: { storageId: v.string() },
-  returns: v.union(v.string(), v.null()),
+export const getFileUrl = zQuery({
+  args: { storageId: z.string() },
   handler: async (ctx, args) => {
     return await ctx.storage.getUrl(args.storageId);
   },
@@ -15,10 +13,9 @@ export const getFileUrl = query({
 /**
  * Get the public site URL for HTTP actions.
  */
-export const getSiteUrl = query({
+export const getSiteUrl = zQuery({
   args: {},
-  returns: v.union(v.string(), v.null()),
   handler: async () => {
-    return process.env.CONVEX_SITE_URL ?? null;
+    return (process.env.CONVEX_SITE_URL as string) ?? null;
   },
 });

@@ -1,11 +1,10 @@
-import { query } from '../_generated/server';
-import { v } from 'convex/values';
+import { zQuery, z } from '../lib/core';
 
 /**
  * Get all public roadmap items grouped by quarter
  * This is the primary query for the public /roadmap page
  */
-export const getPublicRoadmap = query({
+export const getPublicRoadmap = zQuery({
 	args: {},
 	handler: async (ctx) => {
 		const items = await ctx.db
@@ -49,7 +48,7 @@ export const getPublicRoadmap = query({
 /**
  * Get all roadmap items (admin view)
  */
-export const getAllRoadmapItems = query({
+export const getAllRoadmapItems = zQuery({
 	args: {},
 	handler: async (ctx) => {
 		return await ctx.db.query('roadmapItems').collect();
@@ -59,9 +58,9 @@ export const getAllRoadmapItems = query({
 /**
  * Get roadmap items by status
  */
-export const getByStatus = query({
+export const getByStatus = zQuery({
 	args: {
-		status: v.union(v.literal('planned'), v.literal('in_progress'), v.literal('completed'))
+		status: z.enum(['planned', 'in_progress', 'completed'])
 	},
 	handler: async (ctx, args) => {
 		return await ctx.db

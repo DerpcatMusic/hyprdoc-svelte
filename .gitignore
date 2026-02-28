@@ -92,6 +92,11 @@ latest_*.txt
 full_check*.txt
 validation_output.txt
 toggle_check.txt
+svelte-check-output.txt
+error.txt
+out.txt
+nul
+*.bak
 *.log
 
 # AI Assistant Context

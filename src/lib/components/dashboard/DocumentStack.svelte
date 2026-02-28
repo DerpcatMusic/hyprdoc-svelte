@@ -105,8 +105,8 @@
 			}}
       aria-label={isSelected ? 'Deselect document' : 'Select document'}
       class={cn(
-				'absolute -top-2 -right-2 z-50 flex h-7 w-7 items-center justify-center rounded-full border-2 bg-background shadow-lg transition-colors',
-				isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:border-primary'
+				'absolute -top-2 -right-2 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-surface-2 transition-colors',
+				isSelected ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary'
 			)}
     >
       {#if isSelected}
@@ -115,21 +115,21 @@
     </button>
   {/if}
 
-  <!-- Stack Layers -->
+  <!-- Stack Layers (Fake 3D via Tonal Layering) -->
   <div
-    class="absolute top-4 left-4 h-full w-full rotate-3 scale-95 rounded-2xl border border-border/40 bg-card/40 shadow-sm transition-transform duration-500 ease-out group-hover:translate-x-3 group-hover:translate-y-2 group-hover:rotate-6"
+    class="absolute top-4 left-4 h-full w-full rotate-3 scale-95 rounded-2xl border border-border/40 bg-surface-3 transition-transform duration-500 ease-out group-hover:translate-x-3 group-hover:translate-y-2 group-hover:rotate-6"
   ></div>
   <div
-    class="absolute top-2 left-2 h-full w-full rotate-1 scale-[0.98] rounded-2xl border border-border/60 bg-card/60 shadow-md transition-transform duration-500 ease-out group-hover:translate-x-1.5 group-hover:translate-y-1 group-hover:rotate-3"
+    class="absolute top-2 left-2 h-full w-full rotate-1 scale-[0.98] rounded-2xl border border-border/60 bg-surface-2 transition-transform duration-500 ease-out group-hover:translate-x-1.5 group-hover:translate-y-1 group-hover:rotate-3"
   ></div>
 
   <!-- Main Card -->
   <div
-    class="ui-card absolute inset-0 flex h-full w-full flex-col overflow-hidden py-0 group-hover:-translate-y-1 group-hover:shadow-premium group-hover:shadow-primary/10 transition-all duration-500 ease-out"
+    class="ui-card absolute inset-0 flex h-full w-full flex-col overflow-hidden py-0 group-hover:-translate-y-1 border-primary/20 transition-all duration-500 ease-out bg-surface-2 ring-1 ring-border shadow-sm"
   >
     <!-- Header Overlay -->
     <div
-      class="absolute top-0 right-0 left-0 z-30 flex items-center justify-between border-border/20 border-b bg-background/90 px-4 py-3 backdrop-blur-md dark:bg-card/90"
+      class="absolute inset-x-0 top-0 z-30 flex items-center justify-between border-b border-border/50 bg-surface-2 px-4 py-2"
     >
       <div class="flex items-center gap-2 pr-2 overflow-hidden">
         <div
@@ -146,19 +146,19 @@
             <Tooltip>
               <TooltipTrigger>
                 <div class="mr-2 flex items-center gap-1.5">
-                  <Avatar class="h-5 w-5 border border-blue-400/50">
+                  <Avatar class="h-5 w-5 border border-primary/30">
                     <AvatarImage
                       src={doc.owner.imageUrl}
                       alt={doc.owner.name}
                     />
                     <AvatarFallback
-                      class="bg-blue-500/20 text-[8px] text-blue-200"
+                      class="bg-primary/10 text-[8px] text-primary"
                     >
                       {doc.owner.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div
-                    class="flex items-center gap-1 rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] text-blue-200"
+                    class="flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] text-primary"
                   >
                     <span class="i-lucide-users w-2.5 h-2.5"></span>
                     <span class="capitalize">{doc.currentUserRole}</span>
@@ -181,17 +181,17 @@
 							e.stopPropagation();
 							onDelete?.(e, doc._id);
 						}}
-            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-red-500/20"
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-status-danger-soft"
             aria-label={doc.currentUserRole === 'owner' ? 'Delete' : 'Detach'}
             title={doc.currentUserRole === 'owner' ? 'Delete' : 'Detach'}
           >
             {#if doc.currentUserRole === 'owner'}
               <span
-                class="i-lucide-trash-2 w-3.5 h-3.5 text-zinc-400 hover:text-red-500"
+                class="i-lucide-trash-2 w-3.5 h-3.5 text-muted-foreground hover:text-status-danger"
               ></span>
             {:else}
               <span
-                class="i-lucide-unlink-2 w-3.5 h-3.5 text-zinc-400 hover:text-amber-500"
+                class="i-lucide-unlink-2 w-3.5 h-3.5 text-muted-foreground hover:text-status-warning"
               ></span>
             {/if}
           </button>
@@ -212,7 +212,7 @@
 						onDuplicate(e, doc._id);
 					}}
           aria-label="Duplicate document"
-          class="absolute top-2 right-2 z-30 flex h-8 w-8 items-center justify-center rounded-lg border bg-background/90 shadow-md backdrop-blur-sm transition-all hover:scale-110"
+          class="absolute top-2 right-2 z-30 flex h-8 w-8 items-center justify-center rounded-lg border border-border/50 bg-surface-2 transition-all hover:scale-110"
         >
           <span class="i-lucide-copy w-4 h-4 text-muted-foreground"></span>
         </button>
@@ -224,10 +224,10 @@
       >
         <DocumentViewer
           content={doc.content}
-          mode="preview"
+          mode="view"
           settings={effectiveSettings}
           showBadge={false}
-          class="border-none shadow-none ring-0"
+          class="border-none ring-0"
         />
       </div>
     </div>
@@ -239,7 +239,7 @@
         class="pointer-events-none absolute inset-x-0 bottom-14 z-30 flex items-center justify-center pb-2"
       >
         <div
-          class="flex items-center gap-1.5 rounded-full bg-zinc-900/80 px-3 py-1 text-[10px] text-zinc-100 backdrop-blur-md"
+          class="flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 py-1 text-[10px] text-foreground shadow-sm"
         >
           <span class="i-lucide-clock w-3 h-3"></span>
           Saved
@@ -250,7 +250,7 @@
 
     <!-- Footer Action Bar -->
     <div
-      class="absolute inset-x-0 bottom-0 z-40 flex h-14 items-center border-border border-t bg-background/95 backdrop-blur-sm"
+      class="absolute inset-x-0 bottom-0 z-40 flex h-14 items-center border-t border-primary/20 bg-surface-2"
     >
       <button
         type="button"
@@ -258,7 +258,7 @@
 					e.stopPropagation();
 					onViewInstances?.(doc._id);
 				}}
-        class="relative flex h-full flex-1 items-center justify-center gap-2 transition-colors hover:bg-muted/50"
+        class="relative flex h-full flex-1 items-center justify-center gap-2 transition-colors hover:bg-surface-1/50"
       >
         <span class="i-lucide-eye w-3.5 h-3.5 text-muted-foreground"></span>
         <span class="font-medium text-xs">Envelopes</span>
@@ -268,16 +268,16 @@
             {#if isHovered}
               {#if stats.completed > 0}
                 <div class="flex items-center gap-0.5">
-                  <div class="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
-                  <span class="font-bold text-[10px] text-emerald-600"
+                  <div class="h-1.5 w-1.5 rounded-full bg-status-success"></div>
+                  <span class="font-bold text-[10px] text-status-success"
                     >{stats.completed}</span
                   >
                 </div>
               {/if}
               {#if stats.pending > 0}
                 <div class="flex items-center gap-0.5">
-                  <div class="h-1.5 w-1.5 rounded-full bg-amber-500"></div>
-                  <span class="font-bold text-[10px] text-amber-600"
+                  <div class="h-1.5 w-1.5 rounded-full bg-status-warning"></div>
+                  <span class="font-bold text-[10px] text-status-warning"
                     >{stats.pending}</span
                   >
                 </div>
@@ -299,7 +299,7 @@
 					e.stopPropagation();
 					onEdit?.(doc._id);
 				}}
-        class="flex h-full flex-1 items-center justify-center gap-2 font-bold text-primary text-xs transition-all hover:bg-primary/5"
+        class="flex h-full flex-1 items-center justify-center gap-2 font-bold text-primary text-xs transition-all hover:bg-accent/20"
       >
         <span class="i-lucide-edit w-3.5 h-3.5"></span>
         Edit

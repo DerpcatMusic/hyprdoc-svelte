@@ -1,12 +1,11 @@
 /**
  * documents/mutations/delete.ts - Delete Document
  */
-import { v } from "convex/values";
-import { protectedMutation } from "@/convex/lib/core";
+import { zProtectedMutation, zid } from "@/convex/lib/core";
 
-export const remove = protectedMutation({
+export const remove = zProtectedMutation({
 	args: {
-		documentId: v.id("documents"),
+		documentId: zid("documents"),
 	},
 	handler: async (ctx, args) => {
 		// RLS ensures we can only delete our own documents

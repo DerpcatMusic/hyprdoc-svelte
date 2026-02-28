@@ -1,41 +1,38 @@
 # HyprDoc Editor Agent Guide
 
-Guide for maintaining the HyprDoc Smart Block system and Editor architecture.
+## Mission
+Build a fast, modular block editor for template authoring and envelope signing with strict consistency between UI, schema, and audit semantics.
 
-## Smart Block Architecture (`*.block.svelte`)
-Blocks are self-contained components in `src/lib/components/editor/smart-blocks/blocks/`.
+## Scope
+- Block definitions: `src/lib/blocks/definitions/*.block.ts`
+- Block components: `src/lib/blocks/components/*Block.svelte`
+- Block registry: `src/lib/blocks/registry/block-registry.svelte.ts`
+- Node view bridge: `src/lib/editor/extensions/BlockView.svelte`
+- Properties panel: `src/lib/components/editor/properties/*`
 
-### 1. Structure
-- **Module Script**: Must export `definition` (metadata) and `schema` (Zod).
-- **Component Script**: Receives `RenderContext` via `$props()`.
-- **Template**: Handles mode-specific UI (edit, sign, view).
+## Editing Mode Contract
+Every block interaction must respect mode boundaries:
+1. `edit`: template authoring, full controls.
+2. `sign`: signer interaction only for eligible assigned blocks.
+3. `view`: read-only final presentation.
 
-### 2. Registry Auto-discovery
-`BlockRegistry` (`core/block-registry.svelte.ts`) uses Vite's `import.meta.glob` to 
-auto-register blocks. No manual imports or codegen required.
-- **Pattern**: `../blocks/*.block.svelte`
-- **Dynamic Sync**: `getTiptapAttributes()` maps block defaults to Tiptap node attributes.
+## Block Module Contract
+1. Every block definition must include typed schema and defaults for `data`.
+2. `assignable` behavior must be explicit and honored in UI and backend.
+3. Block metadata should be ready for integrity features (hash inclusion, signing role, lock behavior).
+4. Do not bypass `blockRegistry` for ad-hoc block wiring.
 
-## Tiptap Extensions (`src/lib/components/editor/extensions/`)
-- **SmartBlockExtension**: The primary node for all smart blocks.
-- **Dynamic Attributes**: Automatically generated from the `BlockRegistry`.
-- **Dependency Injection**: Use `.configure({ services, documentStore })` to inject 
-  backend services and state into the Tiptap instance.
-- **NodeView**: Renders the Svelte component within the Prosemirror document.
+## Node View and Sync Rules
+1. Avoid raw per-keystroke ProseMirror writes when data can be buffered.
+2. Prevent feedback loops between node view and properties panel updates.
+3. Validate payload shape before persisting block `data`.
+4. Preserve editor responsiveness under dense block documents.
 
-## Mode-based Rendering
-Blocks must implement UI for three modes defined in `RenderContext`:
-- `edit`: Builder mode with full property access and layout controls.
-- `sign`: Interaction mode for signers. Blocks are only interactive if `active`.
-- `view`: Static, read-only view for final document presentation.
+## UI Consistency Rules
+1. Use semantic token classes and shared UI primitives.
+2. Avoid hard-coded color hex values in feature components.
+3. Reuse common CTA/input/control variants across dashboard, onboarding, and editor.
+4. Keep typography/spacing on shared presets instead of one-off class stacks.
 
-## Properties Panel (`src/lib/components/editor/properties/`)
-- **Contextual Tabs**: Switches between 'Global', 'Block', and 'Slots'.
-- **Selection Sync**: `BlockSettingsTab` binds to the currently selected Tiptap node.
-- **UI Store**: Uses `uiStore` for panel state (collapsed/expanded) and layout modes.
-
-## Development Rules
-- **Schema First**: Update the Zod `schema` in the module script before adding props.
-- **Runes Only**: Use Svelte 5 runes (`$state`, `$derived`, `$props`).
-- **Isolation**: Blocks should not access global stores directly; use `RenderContext`.
-- **Validation**: Run `bun run validate` after creating or modifying blocks.
+## Validation
+Run `bun run validate` before merge.

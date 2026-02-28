@@ -20,8 +20,8 @@
 </svelte:head>
 
 {#if userQuery.isLoading}
-  <div class="grid min-h-screen place-items-center bg-white dark:bg-[#09090b]">
-    <div class="h-8 w-8 animate-spin rounded-full border-4 border-[#9FE870] border-t-transparent"></div>
+  <div class="grid min-h-screen place-items-center bg-background">
+    <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
   </div>
 {:else if userQuery.data}
   <OnboardingWizard user={userQuery.data} onComplete={handleComplete} />

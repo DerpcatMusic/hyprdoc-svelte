@@ -1,44 +1,35 @@
-import { v } from "convex/values";
-import { internalMutation, mutation } from "@/convex/_generated/server";
+import { zMutation, zInternalMutation, z, zid } from "../lib/core";
+import type { TierId } from "../lib/tiers";
 
-import type { TierId } from "@/convex/lib/tiers";
+// Tier schema
+const TierSchema = z.enum(["free", "pro", "enterprise", "custom"]);
 
-// Tier validator for all 4 tiers
-const tierValidator = v.union(
-  v.literal("free"),
-  v.literal("pro"),
-  v.literal("enterprise"),
-  v.literal("custom")
-);
+// Subscription status schema
+const SubscriptionStatusSchema = z.enum([
+  "active",
+  "canceled",
+  "past_due",
+  "trialing",
+  "incomplete",
+  "none"
+]);
 
 /**
  * Update user subscription from Polar webhook.
  * If user doesn't exist yet, stores subscription in pending table.
  */
-export const updateSubscription = mutation({
+export const updateSubscription = zMutation({
   args: {
-    workosId: v.string(), // WorkOS ID (formerly workosId)
-    email: v.optional(v.string()), // Added for fallback matching
-    polarSubscriptionId: v.optional(v.string()),
-    polarCustomerId: v.optional(v.string()),
-    subscriptionStatus: v.union(
-      v.literal("active"),
-      v.literal("canceled"),
-      v.literal("past_due"),
-      v.literal("trialing"),
-      v.literal("incomplete"),
-      v.literal("none")
-    ),
-    subscriptionTier: tierValidator,
-    subscriptionExpiresAt: v.optional(v.number()),
-    productId: v.optional(v.string()),
-    hasCompletedPlanSelection: v.optional(v.boolean()),
+    workosId: z.string(), // WorkOS ID (formerly workosId)
+    email: z.string().optional(), // Added for fallback matching
+    polarSubscriptionId: z.string().optional(),
+    polarCustomerId: z.string().optional(),
+    subscriptionStatus: SubscriptionStatusSchema,
+    subscriptionTier: TierSchema,
+    subscriptionExpiresAt: z.number().optional(),
+    productId: z.string().optional(),
+    hasCompletedPlanSelection: z.boolean().optional(),
   },
-  returns: v.object({
-    status: v.union(v.literal("success"), v.literal("pending")),
-    userId: v.optional(v.id("users")),
-    workosId: v.optional(v.string()),
-  }),
   handler: async (ctx, args) => {
     console.log(
       `[Polar Webhook] updateSubscription called for workosId: ${args.workosId}, Email: ${args.email || "N/A"}`
@@ -130,9 +121,8 @@ export const updateSubscription = mutation({
 /**
  * Internal mutation to expire subscriptions.
  */
-export const expireSubscriptions = internalMutation({
+export const expireSubscriptions = zInternalMutation({
   args: {},
-  returns: v.number(),
   handler: async (ctx) => {
     const now = Date.now();
 
@@ -168,23 +158,15 @@ export const expireSubscriptions = internalMutation({
  * Admin-only: Grant custom tier to a user.
  * This should only be called via Convex dashboard or admin API.
  */
-export const grantCustomTier = internalMutation({
+export const grantCustomTier = zInternalMutation({
   args: {
-    workosId: v.string(), // WorkOS ID
+    workosId: z.string(), // WorkOS ID
   },
-  returns: v.boolean(),
   handler: async (ctx, { workosId }) => {
-    let user = await ctx.db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_workos_id", (q) => q.eq("workosId", workosId))
       .unique();
-
-    if (!user) {
-      user = await ctx.db
-        .query("users")
-        .withIndex("by_workos_id", (q) => q.eq("workosId", workosId))
-        .unique();
-    }
 
     if (!user) {
       console.error(`[Admin] User not found for workosId: ${workosId}`);
@@ -204,23 +186,15 @@ export const grantCustomTier = internalMutation({
 /**
  * Admin-only: Revoke custom tier from a user.
  */
-export const revokeCustomTier = internalMutation({
+export const revokeCustomTier = zInternalMutation({
   args: {
-    workosId: v.string(),
+    workosId: z.string(),
   },
-  returns: v.boolean(),
   handler: async (ctx, { workosId }) => {
-    let user = await ctx.db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_workos_id", (q) => q.eq("workosId", workosId))
       .unique();
-
-    if (!user) {
-      user = await ctx.db
-        .query("users")
-        .withIndex("by_workos_id", (q) => q.eq("workosId", workosId))
-        .unique();
-    }
 
     if (!user) {
       return false;
@@ -242,9 +216,8 @@ export const revokeCustomTier = internalMutation({
  * Backfill existing free tier users to have hasCompletedPlanSelection set.
  * Run once after deploying the new schema field.
  */
-export const backfillFreeTierUsers = internalMutation({
+export const backfillFreeTierUsers = zInternalMutation({
   args: {},
-  returns: v.number(),
   handler: async (ctx) => {
     const users = await ctx.db
       .query("users")
@@ -275,23 +248,15 @@ export const backfillFreeTierUsers = internalMutation({
  * Sync subscription from Polar webhook.
  * Public mutation for SvelteKit to call (no auth required for webhooks).
  */
-export const syncSubscription = mutation({
+export const syncSubscription = zMutation({
   args: {
-    workosId: v.string(),
-    tier: tierValidator,
-    status: v.union(
-      v.literal("active"),
-      v.literal("canceled"),
-      v.literal("past_due"),
-      v.literal("trialing"),
-      v.literal("incomplete"),
-      v.literal("none")
-    ),
-    expiresAt: v.optional(v.number()),
-    polarSubscriptionId: v.optional(v.string()),
-    polarCustomerId: v.optional(v.string()),
+    workosId: z.string(),
+    tier: TierSchema,
+    status: SubscriptionStatusSchema,
+    expiresAt: z.number().optional(),
+    polarSubscriptionId: z.string().optional(),
+    polarCustomerId: z.string().optional(),
   },
-  returns: v.boolean(),
   handler: async (ctx, args) => {
     // Find user by WorkOS ID
     const user = await ctx.db

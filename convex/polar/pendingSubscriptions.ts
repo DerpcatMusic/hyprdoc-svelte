@@ -1,40 +1,32 @@
-import { v } from "convex/values";
-import { internalMutation, internalQuery } from "@/convex/_generated/server";
+import { zInternalMutation, zInternalQuery, z, zid } from "../lib/core";
+import type { TierId } from "../lib/tiers";
 
-import type { TierId } from "@/convex/lib/tiers";
+const TierSchema = z.enum(["free", "pro", "enterprise", "custom"]);
 
-const tierValidator = v.union(
-  v.literal("free"),
-  v.literal("pro"),
-  v.literal("enterprise"),
-  v.literal("custom")
-);
-
-const statusValidator = v.union(
-  v.literal("active"),
-  v.literal("canceled"),
-  v.literal("past_due"),
-  v.literal("trialing"),
-  v.literal("incomplete"),
-  v.literal("none")
-);
+const StatusSchema = z.enum([
+  "active",
+  "canceled",
+  "past_due",
+  "trialing",
+  "incomplete",
+  "none"
+]);
 
 /**
  * Store a pending subscription when user doesn't exist yet.
  * Called by updateSubscription when user lookup fails.
  */
-export const storePending = internalMutation({
+export const storePending = zInternalMutation({
   args: {
-    workosId: v.string(),
-    polarSubscriptionId: v.optional(v.string()),
-    polarCustomerId: v.optional(v.string()),
-    subscriptionStatus: statusValidator,
-    subscriptionTier: tierValidator,
-    subscriptionExpiresAt: v.optional(v.number()),
-    productId: v.optional(v.string()),
-    email: v.optional(v.string()),
+    workosId: z.string(),
+    polarSubscriptionId: z.string().optional(),
+    polarCustomerId: z.string().optional(),
+    subscriptionStatus: StatusSchema,
+    subscriptionTier: TierSchema,
+    subscriptionExpiresAt: z.number().optional(),
+    productId: z.string().optional(),
+    email: z.string().optional(),
   },
-  returns: v.id("pendingSubscriptions"),
   handler: async (ctx, args) => {
     const now = Date.now();
 
@@ -87,26 +79,10 @@ export const storePending = internalMutation({
 /**
  * Get pending subscription for a user.
  */
-export const getPending = internalQuery({
+export const getPending = zInternalQuery({
   args: {
-    workosId: v.string(),
+    workosId: z.string(),
   },
-  returns: v.union(
-    v.object({
-      _id: v.id("pendingSubscriptions"),
-      workosId: v.string(),
-      polarSubscriptionId: v.optional(v.string()),
-      polarCustomerId: v.optional(v.string()),
-      subscriptionStatus: statusValidator,
-      subscriptionTier: tierValidator,
-      subscriptionExpiresAt: v.optional(v.number()),
-      productId: v.optional(v.string()),
-      attempts: v.number(),
-      lastAttemptAt: v.number(),
-      createdAt: v.number(),
-    }),
-    v.null()
-  ),
   handler: async (ctx, { workosId }) => {
     return await ctx.db
       .query("pendingSubscriptions")
@@ -118,11 +94,10 @@ export const getPending = internalQuery({
 /**
  * Apply pending subscription to a user and delete the pending record.
  */
-export const applyPending = internalMutation({
+export const applyPending = zInternalMutation({
   args: {
-    workosId: v.string(),
+    workosId: z.string(),
   },
-  returns: v.boolean(),
   handler: async (ctx, { workosId }) => {
     // Get pending subscription
     const pending = await ctx.db
@@ -168,9 +143,8 @@ export const applyPending = internalMutation({
 /**
  * Clean up old pending subscriptions (older than 24 hours).
  */
-export const cleanupOldPending = internalMutation({
+export const cleanupOldPending = zInternalMutation({
   args: {},
-  returns: v.number(),
   handler: async (ctx) => {
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
 

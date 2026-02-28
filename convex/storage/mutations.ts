@@ -1,8 +1,7 @@
 // convex/storage/mutations.ts
-import { v } from "convex/values";
-import { internalMutation, mutation } from "@/convex/_generated/server";
+import { zMutation, zInternalMutation, z } from "../lib/core";
 
-export const generateUploadUrl = mutation({
+export const generateUploadUrl = zMutation({
   args: {},
   handler: async (ctx) => {
     return await ctx.storage.generateUploadUrl();
@@ -12,12 +11,11 @@ export const generateUploadUrl = mutation({
 /**
  * Store a PDF directly from a base64 string (internal use only).
  */
-export const storePdf = internalMutation({
+export const storePdf = zInternalMutation({
   args: {
-    base64Data: v.string(),
-    filename: v.string(),
+    base64Data: z.string(),
+    filename: z.string(),
   },
-  returns: v.id("_storage"),
   handler: async (ctx, args) => {
     const buffer = Buffer.from(args.base64Data, "base64");
     const blob = new Blob([new Uint8Array(buffer)], {

@@ -4,8 +4,7 @@
  * Single source of truth for document data.
  */
 
-import { z } from "zod";
-import { v } from "convex/values";
+import { z } from "../lib/core";
 
 // ═══════════════════════════════════════════════════════════════
 // ZOD SCHEMA — SINGLE SOURCE OF TRUTH
@@ -44,19 +43,3 @@ export const DocumentSchema = z.object({
 export type Document = z.infer<typeof DocumentSchema>;
 export type DocumentStatus = z.infer<typeof DocumentStatusSchema>;
 export type DocumentKind = z.infer<typeof DocumentKindSchema>;
-
-// ═══════════════════════════════════════════════════════════════
-// CONVEX VALIDATORS
-// ═══════════════════════════════════════════════════════════════
-
-export const documentStatusValidator = v.union(
-  v.literal("draft"),
-  v.literal("pending_signatures"),
-  v.literal("completed"),
-  v.literal("expired"),
-  v.literal("voided")
-);
-
-export const documentKindValidator = v.optional(
-  v.union(v.literal("template"), v.literal("envelope"))
-);

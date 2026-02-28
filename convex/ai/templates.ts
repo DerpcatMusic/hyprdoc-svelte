@@ -3,19 +3,18 @@
  * ════════════════════════════════════════════════════════════════════════════
  * Action for performing vector searches on templates.
  */
-import { v } from "convex/values";
-import { action } from "../lib/core";
+import { zAction, z } from "../lib/core";
 import { internal } from "../_generated/api";
 
 /**
  * Perform a RAG search for templates based on user prompt.
  */
-export const searchTemplates = action({
+export const searchTemplates = zAction({
   args: {
-    query: v.string(),
-    genre: v.optional(v.string()),
-    category: v.optional(v.string()),
-    limit: v.optional(v.number()),
+    query: z.string(),
+    genre: z.string().optional(),
+    category: z.string().optional(),
+    limit: z.number().optional(),
   },
 	handler: async (ctx, args): Promise<Array<{ title: string; content: string }>> => {
 		// Placeholder: In a real system, you'd generate an embedding here

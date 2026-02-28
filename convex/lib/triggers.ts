@@ -7,6 +7,7 @@
 
 import { Triggers } from "convex-helpers/server/triggers";
 import type { DataModel } from "../_generated/dataModel";
+import { generateAuditHash } from "./crypto";
 
 // ════════════════════════════════════════════════════════════════════════════
 // TRIGGER REGISTRY
@@ -25,6 +26,26 @@ triggers.register("documents", async (ctx, change) => {
 				? "document.updated"
 				: "document.deleted";
 
+	const timestamp = Date.now();
+	const previousEntry = await ctx.db
+		.query("auditLogs")
+		.withIndex("by_timestamp")
+		.order("desc")
+		.first();
+	const previousHash = previousEntry?.entryHash ?? null;
+	const entryHash = await generateAuditHash(
+		{
+			action,
+			timestamp,
+			resourceId: String(change.id),
+			metadata: {
+				operation: change.operation,
+				title: change.newDoc?.title ?? change.oldDoc?.title,
+			},
+		},
+		previousHash,
+	);
+
 	await ctx.db.insert("auditLogs", {
 		workosId: change.newDoc?.ownerId ?? change.oldDoc?.ownerId,
 		actorType: "system",
@@ -32,8 +53,9 @@ triggers.register("documents", async (ctx, change) => {
 		resourceId: String(change.id),
 		action,
 		level: "info",
-		timestamp: Date.now(),
-		entryHash: `${change.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		timestamp,
+		previousHash: previousHash ?? undefined,
+		entryHash,
 		metadata: {
 			operation: change.operation,
 			title: change.newDoc?.title ?? change.oldDoc?.title,
@@ -46,6 +68,23 @@ triggers.register("documents", async (ctx, change) => {
 // ─────────────────────────────────────────────────────────────────────────────
 triggers.register("users", async (ctx, change) => {
 	if (change.operation === "insert") {
+		const timestamp = Date.now();
+		const previousEntry = await ctx.db
+			.query("auditLogs")
+			.withIndex("by_timestamp")
+			.order("desc")
+			.first();
+		const previousHash = previousEntry?.entryHash ?? null;
+		const entryHash = await generateAuditHash(
+			{
+				action: "user.created",
+				timestamp,
+				resourceId: String(change.id),
+				metadata: { email: change.newDoc?.email },
+			},
+			previousHash,
+		);
+
 		await ctx.db.insert("auditLogs", {
 			workosId: change.id,
 			actorType: "system",
@@ -53,8 +92,9 @@ triggers.register("users", async (ctx, change) => {
 			resourceId: String(change.id),
 			action: "user.created",
 			level: "info",
-			timestamp: Date.now(),
-			entryHash: `${change.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+			timestamp,
+			previousHash: previousHash ?? undefined,
+			entryHash,
 			metadata: { email: change.newDoc?.email },
 		});
 	}

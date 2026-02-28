@@ -192,11 +192,11 @@
     role="button"
     tabindex="0"
     class={cn(
-      "relative w-full h-8 border border-border/40 rounded-md flex items-center bg-background/50 overflow-hidden group cursor-pointer hover:bg-background/80 hover:border-primary/30 shadow-sm transition-all duration-200",
-      isDragging && "cursor-ew-resize border-primary/40 bg-primary/5",
-      isHolding && !isDragging && "shadow-inner scale-[0.98] border-primary/30 bg-primary/5",
+      "relative w-full h-8 border border-border rounded-md flex items-center bg-background overflow-hidden group cursor-pointer hover:border-primary transition-all duration-200",
+      isDragging && "cursor-ew-resize border-primary bg-secondary",
+      isHolding && !isDragging && "border-primary bg-secondary",
       isEditing && "ring-1 ring-primary border-primary bg-background cursor-text",
-      isAtLimit && "border-red-500/60 ring-1 ring-red-500/30"
+      isAtLimit && "border-red-500 ring-1 ring-red-500/30"
     )}
     onpointerdown={handlePointerDown}
     ondblclick={handleDoubleClick}
@@ -276,7 +276,7 @@
       <!-- Scrubbing Tooltip -->
       {#if isDragging}
         <div class={cn(
-          "absolute left-1/2 -top-10 -translate-x-1/2 px-2 py-1 text-[10px] font-mono font-bold rounded shadow-xl z-50 whitespace-nowrap animate-in zoom-in-95 fade-in duration-200",
+          "absolute left-1/2 -top-10 -translate-x-1/2 px-2 py-1 text-[10px] font-mono font-bold rounded z-50 whitespace-nowrap animate-in zoom-in-95 fade-in duration-200",
           isAtLimit ? "bg-red-500 text-white" : "bg-foreground text-background"
         )}>
           {displayValue} <span class="opacity-50 ml-0.5">{unitDisplay}</span>

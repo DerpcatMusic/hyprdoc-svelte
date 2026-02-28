@@ -4,8 +4,7 @@
  * Single source of truth for audit logs.
  */
 
-import { z } from "zod";
-import { v } from "convex/values";
+import { z } from "../lib/core";
 
 // ═══════════════════════════════════════════════════════════════
 // ZOD SCHEMA
@@ -13,14 +12,16 @@ import { v } from "convex/values";
 
 export const AuditLogSchema = z.object({
   workosId: z.string().optional(),
-  actorType: z.enum(["user", "system", "api"]),
+  memberId: z.string().optional(),
+  actorType: z.enum(["user", "system", "member"]),
   documentId: z.string().optional(),
-  resourceType: z.enum(["document", "user", "template", "system"]),
+  resourceType: z.enum(["document", "user", "template"]),
   resourceId: z.string(),
   action: z.string(),
-  level: z.enum(["info", "warning", "error"]).default("info"),
+  level: z.enum(["info", "warn", "error", "security"]).default("info"),
   ipAddress: z.string().optional(),
   userAgent: z.string().optional(),
+  sessionId: z.string().optional(),
   metadata: z.record(z.string(), z.any()).optional(),
   createdAt: z.number().default(() => Date.now()),
 });
@@ -28,19 +29,16 @@ export const AuditLogSchema = z.object({
 export type AuditLog = z.infer<typeof AuditLogSchema>;
 
 // ═══════════════════════════════════════════════════════════════
-// CONVEX VALIDATORS
+// EXPORTS
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Flexible metadata validator for audit logs.
- * Matches Zod's z.record(z.string(), z.any())
+ * Flexible metadata schema for audit logs.
  */
-export const auditMetadataValidator = v.optional(v.any());
+export const auditMetadataSchema = z.record(z.string(), z.any()).optional();
 
-export const aiTemplateMetadataValidator = v.optional(
-  v.object({
-    projectContext: v.optional(v.string()),
-    templateType: v.optional(v.string()),
-    aiModel: v.optional(v.string()),
-  })
-);
+export const aiTemplateMetadataSchema = z.object({
+    projectContext: z.string().optional(),
+    templateType: z.string().optional(),
+    aiModel: z.string().optional(),
+}).optional();

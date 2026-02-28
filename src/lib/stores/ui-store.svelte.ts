@@ -39,6 +39,13 @@ class UiStore {
   viewingTemplateId = $state<string | null>(null);
   importPickerTriggered = $state(0);
 
+  // Properties Panel tab
+  propertiesTab = $state<"document" | "block" | "parties">("document");
+
+  setPropertiesTab(tab: "document" | "block" | "parties") {
+    this.propertiesTab = tab;
+  }
+
   openImportPicker() {
     this.dashboardView = "templates";
     this.viewingTemplateId = null;

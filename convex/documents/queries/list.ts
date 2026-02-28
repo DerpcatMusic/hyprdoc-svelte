@@ -1,24 +1,21 @@
 /**
  * documents/queries/list.ts - List Documents
  */
-import { v } from "convex/values";
-import { protectedQuery } from "@/convex/lib/core";
+import { zProtectedQuery, z, zid } from "@/convex/lib/core";
 
-export const list = protectedQuery({
+export const list = zProtectedQuery({
 	args: {
-		status: v.optional(
-			v.union(
-				v.literal("draft"),
-				v.literal("pending_signatures"),
-				v.literal("completed"),
-				v.literal("expired"),
-				v.literal("voided"),
-			),
-		),
-		limit: v.optional(v.number()),
-		kind: v.optional(v.union(v.literal("template"), v.literal("envelope"))),
-		sourceTemplateId: v.optional(v.id("documents")),
-		category: v.optional(v.string()),
+		status: z.enum([
+			"draft",
+			"pending_signatures",
+			"completed",
+			"expired",
+			"voided",
+		]).optional(),
+		limit: z.number().optional(),
+		kind: z.enum(["template", "envelope"]).optional(),
+		sourceTemplateId: zid("documents").optional(),
+		category: z.string().optional(),
 	},
 	handler: async (ctx, args) => {
 		const limit = args.limit ?? 50;

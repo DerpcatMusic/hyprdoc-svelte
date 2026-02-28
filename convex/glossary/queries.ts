@@ -1,8 +1,7 @@
 // convex/glossary/queries.ts
-import { v } from "convex/values";
-import { query } from "@/convex/_generated/server";
+import { zQuery, z } from "../lib/core";
 
-export const checkIfSeeded = query({
+export const checkIfSeeded = zQuery({
   args: {},
   handler: async (ctx) => {
     const first = await ctx.db
@@ -14,9 +13,9 @@ export const checkIfSeeded = query({
 });
 
 // Main query to get terms (used by the editor extension)
-export const listTerms = query({
+export const listTerms = zQuery({
   args: {
-    limit: v.optional(v.number()),
+    limit: z.number().optional(),
   },
   handler: async (ctx, args) => {
     const limit = args.limit || 1000;
@@ -30,9 +29,9 @@ export const listTerms = query({
  * OPTIMIZED QUERY: Lightweight Index
  * Returns only the terms, minimizing payload size for initial load.
  */
-export const listTermsIndex = query({
+export const listTermsIndex = zQuery({
   args: {
-    limit: v.optional(v.number()),
+    limit: z.number().optional(),
   },
   handler: async (ctx, args) => {
     const limit = args.limit || 2000;
@@ -46,9 +45,9 @@ export const listTermsIndex = query({
  * OPTIMIZED QUERY: Detail on Demand
  * Fetches the full definition only when needed (e.g., hover).
  */
-export const getTerm = query({
+export const getTerm = zQuery({
   args: {
-    term: v.string(),
+    term: z.string(),
   },
   handler: async (ctx, args) => {
     // Exact match lookup via index
@@ -65,9 +64,9 @@ export const getTerm = query({
 });
 
 // Search for the Sidebar - Optimized with index
-export const search = query({
+export const search = zQuery({
   args: {
-    query: v.string(),
+    query: z.string(),
   },
   handler: async (ctx, args) => {
     if (!args.query) {

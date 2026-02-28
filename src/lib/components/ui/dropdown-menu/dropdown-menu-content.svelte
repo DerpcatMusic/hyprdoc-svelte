@@ -3,7 +3,7 @@
   import { cn } from "$lib/utils";
 
   let {
-    class: className,
+    class: className = undefined,
     children,
     sideOffset = 4,
     ref = $bindable(null),

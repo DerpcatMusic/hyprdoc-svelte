@@ -5,9 +5,24 @@
  * modification of system variables.
  */
 
-import { v } from "convex/values";
-import { protectedMutation } from "@/convex/lib/core";
+import { zProtectedMutation, z, zid } from "../lib/core";
 import { validateVariableName, generateDisplayName } from "./logic";
+
+// ════════════════════════════════════════════════════════════════════════════
+// SCHEMAS
+// ════════════════════════════════════════════════════════════════════════════
+
+const VariableTypeSchema = z.enum([
+	"text",
+	"number",
+	"date",
+	"currency",
+	"boolean",
+]);
+
+const VariableScopeSchema = z.enum(["document", "user"]);
+
+const VariableValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
 // ════════════════════════════════════════════════════════════════════════════
 // CREATE
@@ -16,25 +31,19 @@ import { validateVariableName, generateDisplayName } from "./logic";
 /**
  * Create a new variable.
  */
-export const create = protectedMutation({
+export const create = zProtectedMutation({
 	args: {
-		name: v.string(),
-		displayName: v.optional(v.string()),
-		value: v.union(v.string(), v.number(), v.boolean(), v.null()),
-		type: v.union(
-			v.literal("text"),
-			v.literal("number"),
-			v.literal("date"),
-			v.literal("currency"),
-			v.literal("boolean"),
-		),
-		scope: v.union(v.literal("document"), v.literal("user")),
-		category: v.optional(v.string()),
-		description: v.optional(v.string()),
-		placeholder: v.optional(v.string()),
-		fallback: v.optional(v.string()),
-		isRequired: v.optional(v.boolean()),
-		documentId: v.optional(v.id("documents")),
+		name: z.string(),
+		displayName: z.string().optional(),
+		value: VariableValueSchema,
+		type: VariableTypeSchema,
+		scope: VariableScopeSchema,
+		category: z.string().optional(),
+		description: z.string().optional(),
+		placeholder: z.string().optional(),
+		fallback: z.string().optional(),
+		isRequired: z.boolean().optional(),
+		documentId: zid("documents").optional(),
 	},
 	handler: async (ctx, args) => {
 		// Validate name format
@@ -94,16 +103,16 @@ export const create = protectedMutation({
 /**
  * Update an existing variable.
  */
-export const update = protectedMutation({
+export const update = zProtectedMutation({
 	args: {
-		id: v.id("globalVariables"),
-		value: v.optional(v.union(v.string(), v.number(), v.boolean(), v.null())),
-		displayName: v.optional(v.string()),
-		category: v.optional(v.string()),
-		description: v.optional(v.string()),
-		placeholder: v.optional(v.string()),
-		fallback: v.optional(v.string()),
-		isRequired: v.optional(v.boolean()),
+		id: zid("globalVariables"),
+		value: VariableValueSchema.optional(),
+		displayName: z.string().optional(),
+		category: z.string().optional(),
+		description: z.string().optional(),
+		placeholder: z.string().optional(),
+		fallback: z.string().optional(),
+		isRequired: z.boolean().optional(),
 	},
 	handler: async (ctx, args) => {
 		const variable = await ctx.db.get(args.id);
@@ -132,10 +141,10 @@ export const update = protectedMutation({
 /**
  * Quick update - just the value (for inline editing).
  */
-export const quickUpdate = protectedMutation({
+export const quickUpdate = zProtectedMutation({
 	args: {
-		id: v.id("globalVariables"),
-		value: v.union(v.string(), v.number(), v.boolean(), v.null()),
+		id: zid("globalVariables"),
+		value: VariableValueSchema,
 	},
 	handler: async (ctx, args) => {
 		const variable = await ctx.db.get(args.id);
@@ -165,9 +174,9 @@ export const quickUpdate = protectedMutation({
 /**
  * Delete a variable.
  */
-export const remove = protectedMutation({
+export const remove = zProtectedMutation({
 	args: {
-		id: v.id("globalVariables"),
+		id: zid("globalVariables"),
 	},
 	handler: async (ctx, args) => {
 		const variable = await ctx.db.get(args.id);
@@ -196,23 +205,17 @@ export const remove = protectedMutation({
 /**
  * Create multiple variables at once (for onboarding/templates).
  */
-export const createBatch = protectedMutation({
+export const createBatch = zProtectedMutation({
 	args: {
-		variables: v.array(
-			v.object({
-				name: v.string(),
-				displayName: v.optional(v.string()),
-				value: v.union(v.string(), v.number(), v.boolean(), v.null()),
-				type: v.union(
-					v.literal("text"),
-					v.literal("number"),
-					v.literal("date"),
-					v.literal("currency"),
-					v.literal("boolean"),
-				),
-				scope: v.union(v.literal("document"), v.literal("user")),
-				category: v.optional(v.string()),
-				documentId: v.optional(v.id("documents")),
+		variables: z.array(
+			z.object({
+				name: z.string(),
+				displayName: z.string().optional(),
+				value: VariableValueSchema,
+				type: VariableTypeSchema,
+				scope: VariableScopeSchema,
+				category: z.string().optional(),
+				documentId: zid("documents").optional(),
 			}),
 		),
 	},

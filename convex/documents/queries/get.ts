@@ -1,13 +1,12 @@
 /**
  * documents/queries/get.ts - Get Document
  */
-import { v } from "convex/values";
-import { query } from "@/convex/lib/core";
+import { zQuery, z, zid } from "@/convex/lib/core";
 
-export const get = query({
+export const get = zQuery({
 	args: {
-		documentId: v.string(),
-		guestToken: v.optional(v.string()),
+		documentId: z.string(), // Input can be ID or string for normalize
+		guestToken: z.string().optional(),
 	},
 	handler: async (ctx, args) => {
 		const docId = ctx.db.normalizeId("documents", args.documentId);

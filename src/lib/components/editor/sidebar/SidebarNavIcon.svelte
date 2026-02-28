@@ -4,6 +4,7 @@
     Tooltip,
     TooltipContent,
     TooltipTrigger,
+    TooltipProvider,
   } from "$lib/components/ui/tooltip";
   import { cn } from "$lib/utils";
 
@@ -51,23 +52,26 @@
   const theme = $derived(VARIANTS[variant]);
 </script>
 
-<Tooltip>
-  <TooltipTrigger asChild>
-    {#snippet child({ props })}
-      <button
-        {...props}
-        type="button"
-        {onclick}
-        class={cn(
+<TooltipProvider delayDuration={400}>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      {#snippet child({ props })}
+        <button
+          {...props}
+          type="button"
+          {onclick}
+          class={cn(
 					"flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-200",
 					isActive ? theme.active : cn(theme.inactive, theme.hover)
 				)}
-      >
-        <Icon class="size-5" />
-      </button>
-    {/snippet}
-  </TooltipTrigger>
-  <TooltipContent side="right" class="ml-2 font-medium">
-    <p>{label}</p>
-  </TooltipContent>
-</Tooltip>
+        >
+          <Icon class="size-5" />
+        </button>
+      {/snippet}
+    </TooltipTrigger>
+    <TooltipContent side="right" class="ml-2 font-medium">
+      <p>{label}</p>
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+

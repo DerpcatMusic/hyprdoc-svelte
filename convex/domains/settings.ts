@@ -1,11 +1,4 @@
-/**
- * domains/settings.ts - Document Settings Domain
- * ═══════════════════════════════════════════════════════════════
- * Single source of truth for document settings.
- */
-
-import { z } from "zod";
-import { v } from "convex/values";
+import { z } from "../lib/core";
 
 // ═══════════════════════════════════════════════════════════════
 // ZOD SCHEMA — SINGLE SOURCE OF TRUTH
@@ -80,62 +73,6 @@ export const DEFAULT_DOCUMENT_SETTINGS: DocumentSettings = {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// CONVEX VALIDATORS
-// ═══════════════════════════════════════════════════════════════
-
-export const documentSettingsValidator = v.object({
-  pageWidth: v.optional(v.number()),
-  pageHeight: v.optional(v.number()),
-  marginVertical: v.optional(v.number()),
-  marginHorizontal: v.optional(v.number()),
-  marginLeft: v.optional(v.number()),
-  marginRight: v.optional(v.number()),
-  showMargins: v.optional(v.boolean()),
-  paperTexture: v.optional(v.string()),
-  paperTextureOpacity: v.optional(v.number()),
-  paperTextureScale: v.optional(v.number()),
-  paperTextureColor: v.optional(v.string()),
-  paperTextureMonochromatic: v.optional(v.boolean()),
-  backgroundColor: v.optional(v.string()),
-  fontSize: v.optional(v.number()),
-  lineHeight: v.optional(v.number()),
-  fontBody: v.optional(v.string()),
-  fontTitle: v.optional(v.string()),
-  realTimeEnabled: v.optional(v.boolean()),
-  isPublic: v.optional(v.boolean()),
-  mirrorMargins: v.optional(v.boolean()),
-  category: v.optional(v.string()),
-  tags: v.optional(v.array(v.string())),
-  description: v.optional(v.string()),
-});
-
-export const partialDocumentSettingsValidator = v.object({
-  pageWidth: v.optional(v.number()),
-  pageHeight: v.optional(v.number()),
-  marginVertical: v.optional(v.number()),
-  marginHorizontal: v.optional(v.number()),
-  marginLeft: v.optional(v.number()),
-  marginRight: v.optional(v.number()),
-  showMargins: v.optional(v.boolean()),
-  paperTexture: v.optional(v.string()),
-  paperTextureOpacity: v.optional(v.number()),
-  paperTextureScale: v.optional(v.number()),
-  paperTextureColor: v.optional(v.string()),
-  paperTextureMonochromatic: v.optional(v.boolean()),
-  backgroundColor: v.optional(v.string()),
-  fontSize: v.optional(v.number()),
-  lineHeight: v.optional(v.number()),
-  fontBody: v.optional(v.string()),
-  fontTitle: v.optional(v.string()),
-  realTimeEnabled: v.optional(v.boolean()),
-  isPublic: v.optional(v.boolean()),
-  mirrorMargins: v.optional(v.boolean()),
-  category: v.optional(v.string()),
-  tags: v.optional(v.array(v.string())),
-  description: v.optional(v.string()),
-});
-
-// ═══════════════════════════════════════════════════════════════
 // SANITIZATION
 // ═══════════════════════════════════════════════════════════════
 
@@ -164,13 +101,13 @@ export function sanitizeSettings(settings: Partial<DocumentSettings>): Partial<D
   
   for (const key of booleanKeys) {
     if (settings[key] !== undefined) {
-      result[key] = settings[key];
+      result[key] = settings[key] as boolean;
     }
   }
   
   for (const key of stringKeys) {
     if (settings[key] !== undefined) {
-      result[key] = settings[key];
+      result[key] = settings[key] as string;
     }
   }
   

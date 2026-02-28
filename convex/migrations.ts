@@ -1,5 +1,4 @@
-import { v } from "convex/values";
-import { mutation } from "./_generated/server";
+import { zMutation, z } from "./lib/core";
 
 /**
  * Migration: Backfill termLower field for existing glossary terms.
@@ -10,15 +9,10 @@ import { mutation } from "./_generated/server";
  *
  * Run multiple times until "remaining: 0" is returned.
  */
-export const backfillGlossaryTermLower = mutation({
+export const backfillGlossaryTermLower = zMutation({
   args: {
-    batchSize: v.optional(v.number()),
+    batchSize: z.number().optional(),
   },
-  returns: v.object({
-    updated: v.number(),
-    remaining: v.number(),
-    message: v.string(),
-  }),
   handler: async (ctx, args) => {
     const batchSize = args.batchSize ?? 500;
 
