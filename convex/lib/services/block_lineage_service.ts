@@ -1,14 +1,16 @@
 import { internal } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
+import type { MutationCtx } from '@/convex/_generated/server';
 import { hashContent } from '@/convex/lib/crypto';
 import { stableStringify } from '@/convex/lib/stable_json';
 
 type BlockRecord = Record<string, unknown> & { id?: string };
 
 export interface RecordBlockLineageInput {
-	documentId: any;
+	documentId: Id<'documents'>;
 	previousBlocks: unknown;
 	nextBlocks: unknown;
-	changedBy: any;
+	changedBy: Id<'users'>;
 	reason?: string;
 	how?: string;
 }
@@ -76,8 +78,8 @@ async function computeLineageHash(input: {
 }
 
 async function getLatestBlockHash(
-	ctx: any,
-	documentId: any,
+	ctx: MutationCtx,
+	documentId: Id<'documents'>,
 	blockId: string,
 ): Promise<string | undefined> {
 	const latest = await ctx.db
@@ -90,8 +92,8 @@ async function getLatestBlockHash(
 	return latest?.blockHash;
 }
 
-async function insertLineageEvent(ctx: any, input: {
-	documentId: any;
+async function insertLineageEvent(ctx: MutationCtx, input: {
+	documentId: Id<'documents'>;
 	blockId: string;
 	parentBlockId?: string;
 	changeType: 'created' | 'updated' | 'deleted';
@@ -101,7 +103,7 @@ async function insertLineageEvent(ctx: any, input: {
 	reason?: string;
 	how?: string;
 	changeSummary?: unknown;
-	createdBy?: any;
+	createdBy?: Id<'users'>;
 	createdAt: number;
 }) {
 	const lineageHash = await computeLineageHash({
@@ -136,11 +138,11 @@ async function insertLineageEvent(ctx: any, input: {
 }
 
 export async function recordInitialBlockLineage(
-	ctx: any,
+	ctx: MutationCtx,
 	input: {
-		documentId: any;
+		documentId: Id<'documents'>;
 		blocks: unknown;
-		createdBy: any;
+		createdBy: Id<'users'>;
 		reason?: string;
 		how?: string;
 	},
@@ -205,7 +207,7 @@ export async function recordInitialBlockLineage(
 }
 
 export async function recordBlockLineageChanges(
-	ctx: any,
+	ctx: MutationCtx,
 	input: RecordBlockLineageInput,
 ) {
 	const previousBlocks = asBlockArray(input.previousBlocks);

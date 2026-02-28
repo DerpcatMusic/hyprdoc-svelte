@@ -13,6 +13,7 @@
  */
 
 import { hashContent } from "@/convex/lib/crypto";
+import { stableStringify } from "@/convex/lib/stable_json";
 
 export interface SealingContext {
   documentId: string;
@@ -32,7 +33,7 @@ export interface SealResult {
  * This creates a deterministic cryptographic fingerprint of the document.
  */
 export async function generateSealHash(ctx: SealingContext): Promise<string> {
-  const contentToHash = JSON.stringify({
+  const contentToHash = stableStringify({
     title: ctx.title,
     content: ctx.content,
     blocks: ctx.blocks,

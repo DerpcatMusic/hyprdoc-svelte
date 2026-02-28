@@ -2,6 +2,7 @@
  * Cryptographic utilities for document sealing and tamper detection.
  * Uses Web Crypto API (available in Convex runtime).
  */
+import { stableStringify } from "./stable_json";
 
 /**
  * Generate SHA-256 hash of content for tamper detection.
@@ -27,7 +28,7 @@ export async function generateAuditHash(
   },
   previousHash: string | null
 ): Promise<string> {
-  const payload = JSON.stringify({
+  const payload = stableStringify({
     ...entry,
     previousHash: previousHash || "GENESIS",
   });
@@ -67,6 +68,6 @@ export async function hashSignature(signatureData: string): Promise<string> {
  * Used to create irrefutable proof of exact value at time of entry.
  */
 export async function hashValue(value: unknown): Promise<string> {
-  const serialized = JSON.stringify(value ?? null);
+  const serialized = stableStringify(value ?? null);
   return hashContent(serialized);
 }

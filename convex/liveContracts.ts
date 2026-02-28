@@ -1,4 +1,5 @@
 import { internal } from '@/convex/_generated/api';
+import type { Doc, Id } from '@/convex/_generated/dataModel';
 import { zProtectedMutation, zProtectedQuery, z, zid } from '@/convex/lib/core';
 import { hashContent } from '@/convex/lib/crypto';
 import { isDocumentSealed } from '@/convex/lib/services/sealing_service';
@@ -93,11 +94,13 @@ async function computeEventHash(input: {
 	);
 }
 
+type OwnedEnvelope = Doc<'documents'> & { kind: 'envelope'; contentHash: string };
+
 async function getOwnedEnvelopeOrThrow(
-	ctx: any,
-	documentId: any,
-	userId: any,
-) {
+	ctx: { db: { get: (id: Id<'documents'>) => Promise<Doc<'documents'> | null> } },
+	documentId: Id<'documents'>,
+	userId: Id<'users'>,
+): Promise<OwnedEnvelope> {
 	const document = await ctx.db.get(documentId);
 	if (!document) throw new Error('Document not found');
 	if (document.ownerId !== userId) throw new Error('Not authorized');
@@ -105,7 +108,7 @@ async function getOwnedEnvelopeOrThrow(
 	if (!isDocumentSealed(document))
 		throw new Error('Envelope must be sealed before live state can start');
 	if (!document.contentHash) throw new Error('Missing envelope seal hash');
-	return document;
+	return document as OwnedEnvelope;
 }
 
 export const initializeLiveContract = zProtectedMutation({
@@ -422,6 +425,66 @@ export const getLiveContract = zProtectedQuery({
 				contentHash: document.contentHash,
 				baseSealHash: state.baseSealHash,
 			},
+		};
+	},
+});
+
+export const verifyLiveContractIntegrity = zProtectedQuery({
+	args: {
+		documentId: zid('documents'),
+	},
+	handler: async (ctx, args) => {
+		const document = await getOwnedEnvelopeOrThrow(ctx, args.documentId, ctx.user._id);
+		const state = await ctx.db
+			.query('liveContractStates')
+			.withIndex('by_document', (q) => q.eq('documentId', document._id))
+			.first();
+		if (!state) throw new Error('Live contract state not initialized');
+
+		const canonicalStateHash = await computeStateHash({
+			baseSealHash: state.baseSealHash,
+			variables: state.variables as Record<string, string | number | boolean | null>,
+			requirements: state.requirements as Requirement[],
+			pendingActions: state.pendingActions as QueuedAction[],
+			status: state.status,
+		});
+
+		const events = await ctx.db
+			.query('liveContractEvents')
+			.withIndex('by_document_and_created_at', (q) => q.eq('documentId', document._id))
+			.order('asc')
+			.collect();
+
+		let previousHash: string | undefined;
+		let eventChainValid = true;
+		for (const event of events) {
+			const expectedEventHash = await computeEventHash({
+				documentId: String(event.documentId),
+				eventType: event.eventType,
+				source: event.source,
+				payload: event.payload,
+				createdAt: event.createdAt,
+				previousHash,
+			});
+
+			if (event.previousHash !== previousHash || event.eventHash !== expectedEventHash) {
+				eventChainValid = false;
+				break;
+			}
+			previousHash = event.eventHash;
+		}
+
+		return {
+			documentId: document._id,
+			baseSealHash: document.contentHash,
+			storedStateHash: state.stateHash,
+			computedStateHash: canonicalStateHash,
+			stateHashValid: state.stateHash === canonicalStateHash,
+			storedLastEventHash: state.lastEventHash ?? null,
+			computedLastEventHash: previousHash ?? null,
+			lastEventHashValid: (state.lastEventHash ?? null) === (previousHash ?? null),
+			eventChainValid,
+			eventCount: events.length,
 		};
 	},
 });
