@@ -6,6 +6,15 @@
     "useIgnoreFile": true,
     "defaultBranch": "main"
   },
+  "files": {
+    "ignore": [
+      ".svelte-kit/**",
+      ".wrangler/**",
+      "node_modules/**",
+      "build/**",
+      "dist/**"
+    ]
+  },
   "linter": {
     "enabled": true,
     "rules": {

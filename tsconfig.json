@@ -27,6 +27,7 @@
     "src/**/*.ts",
     "src/**/*.svelte",
     "convex/**/*.ts",
+    "packages/**/*.ts",
     "tests/**/*.js",
     "tests/**/*.ts",
     "tests/**/*.svelte"

@@ -2,6 +2,11 @@
 
 HyprDoc is a live-contract platform built on SvelteKit + Convex.
 
+## Workspace Layout
+- `.`: primary SvelteKit + Convex app.
+- `packages/domain-types`: shared domain event/types contract.
+- `packages/contract-core`: deterministic canonicalization/hash helpers (portable boundary for future WASM/Rust).
+
 ## What It Does
 - Author reusable templates.
 - Clone templates into envelopes for signing runs.
@@ -30,4 +35,3 @@ bun run dev
 bun run validate
 bun run build
 ```
-
