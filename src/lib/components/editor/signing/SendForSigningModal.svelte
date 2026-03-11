@@ -43,9 +43,9 @@
     phoneCountryCode: string;
     legalName: string;
   }
-  
+
   let signerAssignments = $state<Record<string, SignerInfo>>({});
-  
+
   // Settings
   let settings = $state({
     requireEmailVerification: true,
@@ -78,7 +78,7 @@
     const newIds = new Set(parties.map(p => p.id));
     const hasNewParty = parties.some(p => !currentIds.has(p.id));
     const hasRemovedParty = [...currentIds].some(id => !newIds.has(id));
-    
+
     if (hasNewParty || hasRemovedParty) {
       signerAssignments = newAssignments;
     }
@@ -95,27 +95,27 @@
   // Validation
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
-    
+
     for (const party of parties) {
       const signer = signerAssignments[party.id];
       if (!signer) {
         newErrors[party.id] = 'Signer information required';
         continue;
       }
-      
+
       if (!signer.email || !signer.email.includes('@')) {
         newErrors[`${party.id}_email`] = 'Valid email required';
       }
-      
+
       if (!signer.legalName || signer.legalName.trim().length < 2) {
         newErrors[`${party.id}_name`] = 'Legal name required';
       }
-      
+
       if (settings.requirePhoneVerification && !signer.phone) {
         newErrors[`${party.id}_phone`] = 'Phone required for verification';
       }
     }
-    
+
     errors = newErrors;
     return Object.keys(newErrors).length === 0;
   }
@@ -126,7 +126,7 @@
       toast.error('Please fix the errors before continuing');
       return;
     }
-    
+
     if (parties.length === 0) {
       toast.error('Add at least one party to send for signing');
       return;
@@ -146,7 +146,7 @@
 
       // 1. Create signing session
       const expiresAt = Date.now() + (settings.expiresInDays * 24 * 60 * 60 * 1000);
-      
+
       const { sessionId, reused } = await createSigningSession.mutate({
         documentId: targetDocumentId,
         signingOrder: settings.signingOrder,
@@ -168,13 +168,16 @@
 
         const authMethod = settings.requireBoth
           ? 'both'
-          : settings.requirePhoneVerification
+          : settings.requirePhoneVerification && !settings.requireEmailVerification
             ? 'phone'
-            : 'email';
+            : settings.requireEmailVerification
+              ? 'email'
+              : 'none';
 
         await assignSigner.mutate({
           sessionId,
           slotId: undefined,
+          partyId: party.id,
           email: signer.email,
           phone: signer.phone || undefined,
           phoneCountryCode: signer.phoneCountryCode || undefined,
@@ -255,10 +258,10 @@
             <Users class="size-4" />
             Assign Signers ({parties.length})
           </h3>
-          
+
           {#each parties as party (party.id)}
             {@const signer = signerAssignments[party.id]}
-            <div 
+            <div
               class="relative rounded-lg border border-border bg-card p-4 space-y-3"
               style="border-left: 4px solid {party.color}"
             >
@@ -341,7 +344,7 @@
         <!-- Signing Settings -->
         <div class="space-y-4">
           <h3 class="text-sm font-semibold text-foreground">Signing Settings</h3>
-          
+
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-1.5">
               <Label class="text-[10px] uppercase tracking-wider">Signing Order</Label>
@@ -373,7 +376,7 @@
             <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Verification Requirements
             </h4>
-            
+
             <div class="flex items-center justify-between">
               <div>
                 <Label class="text-sm">Email Verification</Label>
@@ -406,8 +409,8 @@
       <Button variant="outline" onclick={() => open = false} disabled={isSubmitting}>
         Cancel
       </Button>
-      <Button 
-        onclick={handleSubmit} 
+      <Button
+        onclick={handleSubmit}
         disabled={isSubmitting || parties.length === 0}
         class="gap-2"
       >

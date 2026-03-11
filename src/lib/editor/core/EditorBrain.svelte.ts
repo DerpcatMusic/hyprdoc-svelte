@@ -17,7 +17,7 @@ import { partyStore } from "./party-store.svelte";
 
 const BRAIN_KEY = Symbol("EDITOR_BRAIN");
 
-export type EditorMode = "edit" | "sign";
+export type EditorMode = "edit" | "sign" | "view";
 export type CollabStatus = "disconnected" | "connecting" | "connected";
 export type SaveStates = "idle" | "waiting" | "saving" | "error";
 export type SaveEvents = "CHANGE" | "TIMEOUT" | "SUCCESS" | "FAILURE";
@@ -92,8 +92,16 @@ export class EditorBrain {
     return this.mode === "sign";
   }
 
+  get isViewing(): boolean {
+    return this.mode === "view";
+  }
+
   get isEditable(): boolean {
     return this.mode === "edit" && (this.editor?.isEditable ?? true);
+  }
+
+  get isReading(): boolean {
+    return this.mode === "view" || this.mode === "sign";
   }
 
   get canPersist(): boolean {
@@ -330,7 +338,7 @@ export class EditorBrain {
   }
 
   toggleMode(): void {
-    this.mode = this.mode === "edit" ? "sign" : "edit";
+    this.mode = this.mode === "edit" ? "view" : "edit";
     editorState.setMode(this.mode);
     this.editor?.setEditable(this.mode === "edit");
   }
@@ -341,11 +349,16 @@ export class EditorBrain {
     if (this.editor) {
       this.#previewSnapshot = this.editor.getJSON();
     }
-    this.mode = "sign";
+    this.mode = "view";
     this.isPreview = true;
-    editorState.setMode("sign");
+    editorState.setMode("view");
     editorState.setPreview(true);
     this.editor?.setEditable(false);
+  }
+
+  /** Enter view mode (for read-only review) */
+  enterViewMode(): void {
+    this.enterPreview();
   }
 
   /** Exit preview mode - restore content to discard any preview changes */

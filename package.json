@@ -19,9 +19,14 @@
     "lint:fix": "biome check --write .",
     "fix": "biome check --write . && svelte-check --tsconfig ./tsconfig.json",
     "validate": "svelte-kit sync && concurrently --kill-others-on-fail -n \"Svelte,Biome\" -c \"bgBlue.bold,bgRed.bold\" \"svelte-check --tsconfig ./tsconfig.json --threshold error\" \"biome check .\"",
-    "check:all": "bun run validate"
+    "check:all": "bun run validate",
+    "knip": "bunx knip --config knip.json",
+    "knip:production": "bunx knip --config knip.json --production",
+    "proof:rust:test": "cargo test --manifest-path rust/hyprproof-core/Cargo.toml",
+    "proof:rust:wasm": "CARGO_HOME=\"$PWD/.codex-rust-local/cargo-home-wasm\" RUSTUP_HOME=\"$PWD/.codex-rust-local/rustup-home\" RUSTC=\"$PWD/.codex-rust-local/cargo-home/bin/rustc\" \"$PWD/.codex-rust-local/cargo-home/bin/cargo\" build --manifest-path rust/hyprproof-core/Cargo.toml --target wasm32-unknown-unknown --features wasm --release && \"$PWD/.codex-rust-local/tools/bin/wasm-bindgen\" --target web --out-dir \"$PWD/packages/contract-core/src/wasm\" \"$PWD/rust/hyprproof-core/target/wasm32-unknown-unknown/release/hyprproof_core.wasm\""
   },
   "devDependencies": {
+    "@cloudflare/workerd-linux-64": "1.20260111.0",
     "@biomejs/biome": "^2.4.2",
     "@lucide/svelte": "^0.574.0",
     "@sveltejs/adapter-cloudflare": "^7.2.7",
@@ -36,7 +41,9 @@
     "svelte-check": "^4.4.0",
     "tailwind-merge": "^3.4.1",
     "tailwind-variants": "^3.2.2",
+    "knip": "^5.85.0",
     "typescript": "^5.9.3",
+    "workerd": "1.20260111.0",
     "bun-types": "^1.3.2",
     "ultracite": "^7.2.4",
     "unocss-preset-animations": "^1.3.0",
@@ -44,6 +51,8 @@
     "vite": "^7.3.1"
   },
   "dependencies": {
+    "@hyprdoc/contract-core": "workspace:*",
+    "@hyprdoc/domain-types": "workspace:*",
     "@google/generative-ai": "^0.24.1",
     "@iconify-json/lucide": "^1.2.91",
     "@internationalized/date": "^3.11.0",

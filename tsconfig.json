@@ -11,7 +11,7 @@
     "sourceMap": true,
     "strict": true,
     "moduleResolution": "bundler",
-    "types": ["bun-types"]
+    "types": ["bun-types"],
   },
   // except $lib which is handled by https://svelte.dev/docs/kit/configuration#files
   //
@@ -30,10 +30,10 @@
     "packages/**/*.ts",
     "tests/**/*.js",
     "tests/**/*.ts",
-    "tests/**/*.svelte"
+    "tests/**/*.svelte",
   ],
   "exclude": [
     "src/lib/editor/extensions/_disabled/**",
-    "src/lib/editor/extensions/AuditTrailExtension.ts"
-  ]
+    "src/lib/editor/extensions/AuditTrailExtension.ts",
+  ],
 }

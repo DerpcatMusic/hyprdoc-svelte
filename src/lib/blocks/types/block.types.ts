@@ -13,10 +13,11 @@ import type { z } from "zod";
 
 /**
  * Block rendering mode
- * - edit: Fields are locked, block is configurable (show controls)
- * - sign: Fields are interactive like AcroForms (show badges)
+ * - edit: template authoring, full controls
+ * - sign: signer interaction on assigned fields
+ * - view: read-only presentation
  */
-export type BlockMode = "edit" | "sign";
+export type BlockMode = "edit" | "sign" | "view";
 
 // ════════════════════════════════════════════════════════════════════════════
 // BLOCK CATEGORY

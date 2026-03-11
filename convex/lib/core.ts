@@ -86,7 +86,11 @@ function rlsRules(userId: Id<"users"> | null): Rules<QueryCtx, DataModel> {
 			modify: async (_, user) => user._id === userId,
 		},
 		auditLogs: {
-			read: async () => false,
+			read: async (ctx, auditLog) => {
+				if (!auditLog.documentId) return false;
+				const doc = await ctx.db.get(auditLog.documentId);
+				return doc ? doc.ownerId === userId : false;
+			},
 			insert: async () => true,
 			modify: async () => false,
 		},
@@ -169,6 +173,34 @@ function rlsRules(userId: Id<"users"> | null): Rules<QueryCtx, DataModel> {
 			},
 			insert: async () => true,
 			modify: async () => false,
+		},
+		signingSessions: {
+			read: async (ctx, session) => {
+				const doc = await ctx.db.get(session.documentId);
+				return doc ? doc.ownerId === userId : false;
+			},
+			insert: async (ctx, session) => {
+				const doc = await ctx.db.get(session.documentId);
+				return doc?.ownerId === userId;
+			},
+			modify: async (ctx, session) => {
+				const doc = await ctx.db.get(session.documentId);
+				return doc?.ownerId === userId;
+			},
+		},
+		signerAssignments: {
+			read: async (ctx, assignment) => {
+				const doc = await ctx.db.get(assignment.documentId);
+				return doc ? doc.ownerId === userId : false;
+			},
+			insert: async (ctx, assignment) => {
+				const doc = await ctx.db.get(assignment.documentId);
+				return doc?.ownerId === userId;
+			},
+			modify: async (ctx, assignment) => {
+				const doc = await ctx.db.get(assignment.documentId);
+				return doc?.ownerId === userId;
+			},
 		},
 		documentMembers: {
 			read: async (ctx, member) => {

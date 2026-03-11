@@ -4,7 +4,6 @@
    * Simplified and updated for Svelte 5.
    */
   import { Editor, type JSONContent } from "@tiptap/core";
-  import { generateHTML } from "@tiptap/html";
   import { onDestroy, onMount } from "svelte";
   import { createEditorExtensions } from "../core/extensions";
   import { formatFontName } from "$lib/constants/fonts";
@@ -60,36 +59,37 @@
     marginHorizontal: settings.marginHorizontal ?? 48,
     pageWidth: settings.pageWidth ?? 816,
     pageHeight: settings.pageHeight ?? 1056,
-    paperColor: settings.paperColor ?? "#ffffff",
+    paperColor: settings.paperColor ?? "var(--document)",
   });
 
-  const staticHtml = $derived.by(() => {
-    if (mode !== "sign" || !parsedContent) return "";
-    try {
-      const extensions = createEditorExtensions({ placeholder: "" });
-      return generateHTML(parsedContent, extensions);
-    } catch (e) {
-      console.error("Failed to generate static HTML", e);
-      return "";
-    }
-  });
+  const isEditable = $derived(mode === "edit");
 
   let element = $state<HTMLElement>();
   let editor = $state<Editor>();
+  let renderedContent = $state("");
 
-  onMount(() => {
-    if (!element || mode === "sign") return;
+  function syncEditor(): void {
+    if (!element || !parsedContent) return;
 
-    // Use a simplified version of extensions for non-edit modes
+    const newContent = JSON.stringify(parsedContent);
     const extensions = createEditorExtensions({
       placeholder: "",
     });
+
+    if (editor) {
+      editor.setEditable(isEditable);
+      if (newContent !== renderedContent) {
+        editor.commands.setContent(parsedContent);
+        renderedContent = newContent;
+      }
+      return;
+    }
 
     editor = new Editor({
       element,
       extensions,
       content: parsedContent,
-      editable: mode === "edit",
+      editable: isEditable,
       editorProps: {
         attributes: {
           class: "prose prose-sm focus:outline-none max-w-none",
@@ -97,11 +97,16 @@
         },
       },
     });
+    renderedContent = newContent;
+  }
+
+  onMount(() => {
+    syncEditor();
   });
 
   $effect(() => {
-    if (editor && parsedContent && mode !== "sign") {
-      editor.commands.setContent(parsedContent);
+    if (editor) {
+      syncEditor();
     }
   });
 
@@ -140,20 +145,11 @@
     style:padding-bottom="{effectiveSettings.marginVertical}px"
     style:padding-left="{effectiveSettings.marginHorizontal}px"
     style:padding-right="{effectiveSettings.marginHorizontal}px"
-    style:background-color={effectiveSettings.paperColor === '#ffffff' ? undefined : effectiveSettings.paperColor}
+    style:background-color={effectiveSettings.paperColor}
     style:min-height={!isNaN(effectiveSettings.pageHeight) ? `${effectiveSettings.pageHeight}px` : '1056px'}
     style:--hd-font-family={effectiveSettings.fontBody}
     style:--hd-font-title={effectiveSettings.fontTitle}
     style:--hd-font-size={!isNaN(effectiveSettings.fontSize) ? `${effectiveSettings.fontSize}px` : '16px'}
   >
-    {#if mode === 'sign'}
-      <div
-        class="prose prose-sm focus:outline-none max-w-none"
-        style:font-family='"{effectiveSettings.fontBody}", sans-serif'
-        style:font-size="{effectiveSettings.fontSize}px"
-      >
-        {@html staticHtml}
-      </div>
-    {/if}
   </div>
 </div>

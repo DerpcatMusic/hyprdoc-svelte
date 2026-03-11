@@ -1,8 +1,10 @@
 # HyprDoc Architecture (Canonical)
 
 ## Stack
-- Frontend: SvelteKit 5 + Tiptap v3 + UnoCSS.
-- Backend: Convex modular monolith.
+- Current frontend: SvelteKit 5 + Tiptap v3 + UnoCSS.
+- Transitional backend: Convex modular monolith.
+- Target runtime: Phoenix for orchestration and realtime runtime concerns.
+- Proof kernel: Rust for deterministic hashing and verification.
 - Security primitives: SHA-256 hashing, append-only audit/event logs, server-side invariants.
 
 ## Core Domain
@@ -58,3 +60,9 @@
 2. Stronger envelope lifecycle immutability and audit completeness.
 3. Smart block schema hardening.
 4. Live state orchestration (notifications, integrations, rule-action engine) on top of sealed envelopes.
+
+## Target Direction
+- Keep Svelte for authoring/sign/view UX.
+- Move live contract orchestration into Phoenix.
+- Keep deterministic proof and verification logic in Rust.
+- Preserve the sealed/live split throughout migration.

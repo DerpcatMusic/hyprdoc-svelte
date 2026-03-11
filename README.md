@@ -1,11 +1,13 @@
 # HyprDoc
 
-HyprDoc is a live-contract platform built on SvelteKit + Convex.
+HyprDoc is a live-contract platform moving toward an endgame stack of SvelteKit + Phoenix + Rust.
 
 ## Workspace Layout
-- `.`: primary SvelteKit + Convex app.
+- `.`: primary SvelteKit app and current transitional backend.
+- `apps/runtime`: Phoenix runtime scaffold for live-contract orchestration.
 - `packages/domain-types`: shared domain event/types contract.
-- `packages/contract-core`: deterministic canonicalization/hash helpers (portable boundary for future WASM/Rust).
+- `packages/contract-core`: deterministic canonicalization/hash helpers and Rust/WASM adapter boundary.
+- `rust/hyprproof-core`: Rust proof kernel.
 
 ## What It Does
 - Author reusable templates.
@@ -21,6 +23,7 @@ HyprDoc is a live-contract platform built on SvelteKit + Convex.
 
 ## Main Docs
 - Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)
+- Endgame stack: [docs/architecture/endgame-stack.md](./docs/architecture/endgame-stack.md)
 - Agent operating rules: [AGENTS.md](./AGENTS.md)
 - Product docs: `docs/`
 
