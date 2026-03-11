@@ -53,12 +53,12 @@
 
   const modes = [
     { id: "edit", label: "Edit", icon: "i-lucide-pen-tool" },
-    { id: "sign", label: "Preview", icon: "i-lucide-eye" },
+    { id: "view", label: "Review", icon: "i-lucide-eye" },
   ] as const;
 
-  function handleModeChange(modeId: "edit" | "sign") {
+  function handleModeChange(modeId: "edit" | "view") {
     if (brain.mode === modeId) return;
-    
+
     if (modeId === "sign") {
       // Enter preview mode (snapshot content for restore on exit)
       brain.enterPreview();

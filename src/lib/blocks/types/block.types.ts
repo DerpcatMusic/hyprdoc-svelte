@@ -13,10 +13,11 @@ import type { z } from "zod";
 
 /**
  * Block rendering mode
- * - edit: Fields are locked, block is configurable (show controls)
- * - sign: Fields are interactive like AcroForms (show badges)
+ * - edit: template authoring, full controls
+ * - sign: signer interaction on assigned fields
+ * - view: read-only presentation
  */
-export type BlockMode = "edit" | "sign";
+export type BlockMode = "edit" | "sign" | "view";
 
 // ════════════════════════════════════════════════════════════════════════════
 // BLOCK CATEGORY
@@ -60,6 +61,25 @@ export interface BaseBlockAttrs {
 
   /** Condition expression (evaluated at runtime) */
   conditionExpr: string | null;
+
+  /** Explicit runtime mutation policy for post-seal live blocks */
+  runtimePolicy: {
+    mode: "sealed" | "live_append_only" | "live_replaceable";
+    allowedPaths: string[];
+    condition?: {
+      field: string;
+      operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "exists";
+      value?: unknown;
+    };
+  } | null;
+
+  /** Optional integration binding that owns runtime-fed values */
+  integrationBinding: {
+    integration: string;
+    externalObjectType: string;
+    externalObjectIdPath: string;
+    idempotencyKeyPath?: string;
+  } | null;
 
   /** Block-specific data (JSON) */
   data: Record<string, unknown>;

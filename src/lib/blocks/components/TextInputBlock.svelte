@@ -19,6 +19,7 @@
   const { mode, data, updateData, selected }: Props = $props();
 
   const isEditing = $derived(mode === "edit");
+  const isView = $derived(mode === "view");
   const isSigning = $derived(mode === "sign");
 
   function handleValueChange(e: Event): void {
@@ -29,7 +30,7 @@
 
 <div class="text-input-block" class:selected>
   <!-- EDIT MODE: Just show the input preview -->
-  {#if isEditing}
+  {#if isEditing || isView}
     <div class="edit-view">
       <input
         type="text"

@@ -174,9 +174,10 @@ export class BlockRegistry {
       this.setCategories([
         { id: "input", name: "Input Fields", icon: "i-lucide-text-cursor-input", order: 1 },
         { id: "signature", name: "Signatures", icon: "i-lucide-pen-tool", order: 2 },
-        { id: "content", name: "Content", icon: "i-lucide-file-text", order: 3 },
-        { id: "logic", name: "Logic", icon: "i-lucide-git-branch", order: 4 },
-        { id: "layout", name: "Layout", icon: "i-lucide-layout", order: 5 },
+        { id: "live", name: "Live Runtime", icon: "i-lucide-activity", order: 3 },
+        { id: "content", name: "Content", icon: "i-lucide-file-text", order: 4 },
+        { id: "logic", name: "Logic", icon: "i-lucide-git-branch", order: 5 },
+        { id: "layout", name: "Layout", icon: "i-lucide-layout", order: 6 },
       ]);
     }
 

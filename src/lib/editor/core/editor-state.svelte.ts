@@ -7,7 +7,7 @@
 
 import type { Editor } from "@tiptap/core";
 
-export type EditorMode = "edit" | "sign";
+export type EditorMode = "edit" | "sign" | "view";
 
 class EditorStateStore {
   /** Current editor mode */

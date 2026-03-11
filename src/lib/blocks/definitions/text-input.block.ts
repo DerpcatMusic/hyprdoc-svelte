@@ -14,6 +14,10 @@ export const textInputDataSchema = z.object({
   value: z.string().default(""),
   maxLength: z.number().nullable().default(null),
   minLength: z.number().nullable().default(null),
+  liveMode: z
+    .enum(["sealed", "live_append_only", "live_replaceable"])
+    .default("sealed"),
+  livePaths: z.array(z.string()).default([]),
 });
 
 export type TextInputData = z.infer<typeof textInputDataSchema>;
@@ -35,6 +39,8 @@ const textInputBlock: BlockDefinition<TextInputData> = {
     value: "",
     maxLength: null,
     minLength: null,
+    liveMode: "sealed",
+    livePaths: [],
   },
 
   component: () => import("$lib/blocks/components/TextInputBlock.svelte"),

@@ -22,6 +22,7 @@
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import { uiStore } from "$lib/stores/ui-store.svelte";
   import { Plus, UserMinus, Settings } from "lucide-svelte";
+  import type { BlockMode } from "$lib/blocks/types";
 
   // Props passed by SvelteNodeViewRenderer
   interface NodeViewComponentProps {
@@ -47,7 +48,7 @@
   const isEditing = $derived(
     editorState.mode === "edit" && (editor as any)?.isEditable !== false
   );
-  const mode = $derived(isEditing ? "edit" : "sign");
+  const mode = $derived((editorState.mode ?? "view") as BlockMode);
   const partyColor = $derived(partyStore.getColor(attrs.partyId));
   const partyName = $derived(partyStore.getName(attrs.partyId));
   const isUnassigned = $derived(!attrs.partyId);

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreBinaries": ["workerd"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "src/app.html",
+        "src/hooks.server.ts",
+        "src/routes/**/+{layout,layout.server,page,page.server,server,error}.{js,ts,svelte}",
+        "vite.config.{js,ts}",
+        "svelte.config.{js,ts}",
+        "convex/*.{js,ts}",
+        "convex/**/{index,queries,mutations,actions}.{js,ts}"
+      ],
+      "project": [
+        "src/**/*.{js,ts,svelte}",
+        "convex/**/*.ts"
+      ],
+      "paths": {
+        "$lib/*": ["src/lib/*"],
+        "@/*": ["src/*"],
+        "@/convex/*": ["convex/*"],
+        "$convex/*": ["convex/*"]
+      },
+      "ignore": [
+        ".svelte-kit/**",
+        "convex/_generated/**",
+        "_contracts_disabled/**",
+        "src/lib/editor/extensions/_disabled/**",
+        "src/lib/editor/extensions/AuditTrailExtension.ts"
+      ]
+    },
+    "packages/contract-core": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/domain-types": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  }
+}

@@ -19,11 +19,20 @@
   // Sync activeView with URL for direct navigation
   $effect(() => {
     const path = page.url.pathname;
-    if (path.includes("/settings")) {
+    const requestedView = page.url.searchParams.get("view");
+
+    if (
+      requestedView === "templates" ||
+      requestedView === "envelopes" ||
+      requestedView === "signed" ||
+      requestedView === "settings"
+    ) {
+      uiStore.setDashboardView(requestedView);
+    } else if (path.includes("/settings")) {
       uiStore.setDashboardView("settings");
     } else if (path.includes("/signed")) {
       uiStore.setDashboardView("signed");
-    } else if (path.includes("/envelopes")) {
+    } else if (path.includes("/envelopes") || path.includes("/envelope/")) {
       uiStore.setDashboardView("envelopes");
     } else if (path.includes("/dashboard")) {
       uiStore.setDashboardView("templates");
@@ -66,9 +75,9 @@
   {/if}
   <SidebarInset
     class={cn(
-			'transition-colors duration-500',
-			modeToggle.isCorporate ? 'bg-background' : 'bg-transparent'
-		)}
+      'transition-colors duration-500',
+      modeToggle.isCorporate ? 'bg-background' : 'bg-transparent'
+    )}
   >
     <div class="min-h-screen transition-colors duration-300">
       {@render children()}

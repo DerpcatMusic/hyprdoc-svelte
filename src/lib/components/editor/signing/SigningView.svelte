@@ -11,6 +11,9 @@
   import { useConvexMutation } from "$lib/convex/hooks";
   import { api } from "@/convex/_generated/api";
   import type { Id } from "@/convex/_generated/dataModel";
+  import DocumentViewer from "$lib/editor/ui/DocumentViewer.svelte";
+  import type { ExtractedSmartBlock } from "$lib/blocks/runtime/extract-smart-blocks";
+  import { extractSmartBlocksFromContent } from "$lib/blocks/runtime/extract-smart-blocks";
   import SignaturePad from "$lib/components/ui/signature/SignaturePad.svelte";
   import { HYPR_DEFAULT_PARTY_COLOR } from "$lib/styles/ui-palette";
   import OtpVerificationView from "./OtpVerificationView.svelte";
@@ -25,7 +28,7 @@
   // Current step in the signing flow
   type SigningStep = 'loading' | 'view' | 'verify-email' | 'verify-phone' | 'sign' | 'complete' | 'error' | 'declined';
   let currentStep = $state<SigningStep>('loading');
-  
+
   // Data from backend
   let signerData = $state<{
     documentId: Id<"documents">;
@@ -40,18 +43,47 @@
     phoneVerified: boolean;
     maskedEmail: string;
     maskedPhone?: string;
+    assignedBlocks: ExtractedSmartBlock[];
+    fieldValues: Record<string, string>;
   } | null>(null);
 
   let errorMessage = $state<string | null>(null);
   let signatureValue = $state<string | null>(null);
   let signedAsName = $state('');
+  let inputValues = $state<Record<string, string>>({});
   let activeChallengeId = $state<Id<"authChallenges"> | null>(null);
   let isSubmitting = $state(false);
   let agreedToTerms = $state(false);
 
+  const smartBlocks = $derived(
+    signerData ? extractSmartBlocksFromContent(signerData.documentContent) : []
+  );
+  const signatureBlocks = $derived(
+    smartBlocks.filter((block: ExtractedSmartBlock) => block.blockType === "signature")
+  );
+  const inputBlocks = $derived(
+    smartBlocks.filter((block: ExtractedSmartBlock) => block.blockType === "text-input")
+  );
+  const assignedBlocks = $derived(signerData?.assignedBlocks ?? []);
+  const assignedSignatureBlocks = $derived(
+    assignedBlocks.filter((block: ExtractedSmartBlock) => block.blockType === "signature")
+  );
+  const assignedInputBlocks = $derived(
+    assignedBlocks.filter((block: ExtractedSmartBlock) => block.blockType === "text-input")
+  );
+  const signatureTargetBlocks = $derived(
+    assignedSignatureBlocks.filter((block: ExtractedSmartBlock) => block.required).length > 0
+      ? assignedSignatureBlocks.filter((block: ExtractedSmartBlock) => block.required)
+      : assignedSignatureBlocks.slice(0, 1)
+  );
+  const primarySignatureBlockId = $derived(
+    signatureTargetBlocks[0]?.id ?? null
+  );
+
   // Convex queries and mutations
   const signerView = useQuery(api.signing.getSignerView, () => ({ accessToken }));
   const recordSignerView = useConvexMutation(api.signing.recordSignerView);
+  const saveFieldValue = useConvexMutation(api.signing.saveFieldValue);
   const recordSignature = useConvexMutation(api.signing.recordSignature);
   const completeSignerSession = useConvexMutation(api.signing.completeSignerSession);
   const sendAuthChallenge = useConvexMutation(api.signing.sendAuthChallenge);
@@ -59,24 +91,24 @@
   // Process query result
   $effect(() => {
     const data = signerView.data;
-    
+
     if (signerView.isLoading) {
       currentStep = 'loading';
       return;
     }
-    
+
     if (signerView.error || !data) {
       currentStep = 'error';
       errorMessage = 'Unable to load signing session. The link may be invalid or expired.';
       return;
     }
-    
+
     // Check for already completed
     if (data.status === 'signed') {
       currentStep = 'complete';
       return;
     }
-    
+
     if (data.status === 'declined') {
       currentStep = 'declined';
       return;
@@ -102,8 +134,10 @@
       phoneVerified: data.phoneVerified ?? false,
       maskedEmail: data.maskedEmail ?? '',
       maskedPhone: data.maskedPhone,
+      assignedBlocks: (data.assignedBlocks ?? []) as ExtractedSmartBlock[],
+      fieldValues: (data.fieldValues ?? {}) as Record<string, string>,
     };
-    
+
     signedAsName = data.signerName ?? '';
 
     // Determine current step based on verification status
@@ -116,6 +150,10 @@
         currentStep = 'view'; // All verified, can proceed
       }
     }
+  });
+
+  $effect(() => {
+    inputValues = signerData?.fieldValues ? { ...signerData.fieldValues } : {};
   });
 
   // Record view when signer first sees document
@@ -134,7 +172,7 @@
   // Step navigation
   function proceedToVerification(): void {
     if (!signerData) return;
-    
+
     if (signerData.requiresEmailVerification && !signerData.emailVerified) {
       // Send email challenge
       sendAuthChallenge.mutate({
@@ -163,9 +201,9 @@
 
   function onEmailVerified(): void {
     if (!signerData) return;
-    
+
     signerData = { ...signerData, emailVerified: true };
-    
+
     if (signerData.requiresPhoneVerification && !signerData.phoneVerified) {
       // Need phone verification next
       sendAuthChallenge.mutate({
@@ -188,30 +226,62 @@
     currentStep = 'sign';
   }
 
+  function updateInputValue(blockId: string, value: string): void {
+    inputValues = {
+      ...inputValues,
+      [blockId]: value,
+    };
+  }
+
   async function handleSign(): Promise<void> {
     if (!signerData || !signatureValue || !signedAsName.trim()) {
       toast.error('Please provide your signature and name');
       return;
     }
-    
+
+    if (!primarySignatureBlockId) {
+      toast.error('No signature block was found in this document');
+      return;
+    }
+
     if (!agreedToTerms) {
       toast.error('Please agree to the terms to continue');
+      return;
+    }
+
+    const missingInputs = assignedInputBlocks.filter(
+      (block) => block.required && !(inputValues[block.id]?.trim())
+    );
+    if (missingInputs.length > 0) {
+      toast.error(`Complete required fields: ${missingInputs.map((block) => block.label).join(", ")}`);
       return;
     }
 
     isSubmitting = true;
 
     try {
-      await recordSignature.mutate({
-        accessToken,
-        blockId: "signature",
-        signatureType: "draw",
-        signatureData: signatureValue,
-        metadata: {
-          ipAddress: 'unknown',
-          userAgent: navigator.userAgent,
-        },
-      });
+      for (const block of assignedInputBlocks) {
+        const nextValue = inputValues[block.id] ?? "";
+        if (!nextValue.trim() && !block.required) continue;
+        await saveFieldValue.mutate({
+          accessToken,
+          blockId: block.id,
+          value: nextValue,
+        });
+      }
+
+      for (const block of signatureTargetBlocks) {
+        await recordSignature.mutate({
+          accessToken,
+          blockId: block.id,
+          signatureType: "draw",
+          signatureData: signatureValue,
+          metadata: {
+            ipAddress: 'unknown',
+            userAgent: navigator.userAgent,
+          },
+        });
+      }
 
       await completeSignerSession.mutate({
         accessToken,
@@ -229,7 +299,7 @@
 
   async function handleDecline(): Promise<void> {
     if (!signerData) return;
-    
+
     // TODO: Implement decline mutation
     toast.info('Declining is not yet implemented');
   }
@@ -274,7 +344,7 @@
       {#if signerData}
         <div class="flex items-center gap-2 text-sm">
           <span class="text-muted-foreground">Signing as</span>
-          <span 
+          <span
             class="font-medium px-2 py-0.5 rounded text-xs"
             style="background-color: {signerData.partyColor}20; color: {signerData.partyColor}"
           >
@@ -295,7 +365,7 @@
             {@const isActive = currentStepIndex() >= i}
             {@const isCurrent = currentStepIndex() === i}
             <div class="flex items-center gap-2">
-              <div 
+              <div
                 class={cn(
                   "flex items-center justify-center size-8 rounded-full transition-colors",
                   isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
@@ -304,7 +374,7 @@
               >
                 <StepIcon class="size-4" />
               </div>
-              <span 
+              <span
                 class={cn(
                   "text-sm font-medium hidden sm:block",
                   isActive ? "text-foreground" : "text-muted-foreground"
@@ -366,9 +436,23 @@
 
         <!-- Document Preview -->
         <div class="border rounded-lg bg-white shadow-sm p-8 min-h-[500px]">
-          <div class="prose prose-sm max-w-none">
-            {@html signerData.documentContent}
+          <div class="mb-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span class="rounded-full border border-border px-3 py-1">
+              {smartBlocks.length} smart blocks
+            </span>
+            <span class="rounded-full border border-border px-3 py-1">
+              {assignedSignatureBlocks.length}/{signatureBlocks.length} signatures for you
+            </span>
+            <span class="rounded-full border border-border px-3 py-1">
+              {assignedInputBlocks.length}/{inputBlocks.length} inputs for you
+            </span>
           </div>
+          <DocumentViewer
+            content={signerData.documentContent}
+            mode="view"
+            showBadge={false}
+            class="shadow-none"
+          />
         </div>
 
         <!-- Actions -->
@@ -415,9 +499,42 @@
           <p class="text-muted-foreground">
             Draw your signature below and confirm your identity
           </p>
+          {#if signatureTargetBlocks.length > 0}
+            <p class="text-xs text-muted-foreground">
+              Applying to {signatureTargetBlocks.length} signature field{signatureTargetBlocks.length === 1 ? "" : "s"}
+            </p>
+          {/if}
         </div>
 
         <div class="space-y-4">
+          {#if assignedInputBlocks.length > 0}
+            <div class="space-y-3">
+              <p class="text-sm font-medium">Required Fields</p>
+              {#each assignedInputBlocks as block (block.id)}
+                <div class="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3">
+                  <div class="flex items-center justify-between gap-3">
+                    <label for={`block-${block.id}`} class="text-sm font-medium">
+                      {block.label}
+                    </label>
+                    {#if block.required}
+                      <span class="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
+                        required
+                      </span>
+                    {/if}
+                  </div>
+                  <input
+                    id={`block-${block.id}`}
+                    type="text"
+                    value={inputValues[block.id] ?? ""}
+                    oninput={(event: Event) => updateInputValue(block.id, (event.currentTarget as HTMLInputElement).value)}
+                    class="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    placeholder={typeof block.data.placeholder === "string" ? block.data.placeholder : block.label}
+                  />
+                </div>
+              {/each}
+            </div>
+          {/if}
+
           <!-- Signature Pad -->
           <div class="space-y-2">
             <p class="text-sm font-medium">Your Signature</p>
@@ -460,9 +577,9 @@
           <Button variant="outline" onclick={() => currentStep = 'view'}>
             Back to Document
           </Button>
-          <Button 
-            onclick={handleSign} 
-            disabled={!signatureValue || !signedAsName.trim() || !agreedToTerms || isSubmitting}
+          <Button
+            onclick={handleSign}
+            disabled={!primarySignatureBlockId || !signatureValue || !signedAsName.trim() || !agreedToTerms || isSubmitting}
             class="gap-2"
           >
             {#if isSubmitting}

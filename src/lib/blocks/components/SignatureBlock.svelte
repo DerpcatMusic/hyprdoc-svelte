@@ -19,6 +19,7 @@
   const { mode, data, updateData, selected }: Props = $props();
 
   const isEditing = $derived(mode === "edit");
+  const isView = $derived(mode === "view");
   const isSigning = $derived(mode === "sign");
   const isSigned = $derived(!!data.signatureData);
   const signedAtLabel = $derived.by(() => {
@@ -47,7 +48,7 @@
 
 <div class="signature-block" class:selected>
   <!-- EDIT MODE: Just show signature placeholder -->
-  {#if isEditing}
+  {#if isEditing || isView}
     <div class="edit-view">
       <div class="signature-placeholder">
         <span class="i-lucide-pen-tool size-5 text-muted-foreground"></span>

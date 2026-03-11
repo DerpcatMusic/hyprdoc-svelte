@@ -3,7 +3,7 @@
   import { Calendar as CalendarPrimitive } from "bits-ui";
   import type { Snippet } from "svelte";
   import { cn, type WithoutChildrenOrChild } from "$lib/utils.js";
-  import type { ButtonVariant } from "../button/button.svelte";
+  import type { ButtonVariant } from "../button/button.variants";
   import * as Calendar from "./index.js";
 
   let {

@@ -99,6 +99,10 @@ nul
 *.bak
 *.log
 
+# Local Rust Tooling
+.codex-rust-local/
+rust/**/target/
+
 # AI Assistant Context
 .claude/
 .gemini/

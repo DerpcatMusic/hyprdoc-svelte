@@ -5,7 +5,7 @@ export {
   type ToggleVariant,
   type ToggleVariants,
   toggleVariants,
-} from "./toggle.svelte";
+} from "./toggle.variants";
 
 export {
   Root,
