@@ -1,6 +1,7 @@
 <script lang="ts">
   import { useDebounce } from "runed";
   import type { Editor } from "@tiptap/core";
+  import type { BaseBlockAttrs } from "$lib/blocks/types";
   import { useEditorBrain } from "$lib/editor/core/EditorBrain.svelte";
   import { blockRegistry } from "$lib/blocks/registry/block-registry.svelte";
   import { partyStore } from "$lib/editor/core/party-store.svelte";
@@ -155,6 +156,90 @@
   function isBoolean(val: unknown): boolean {
     return typeof val === 'boolean';
   }
+
+  const runtimePolicy = $derived(
+    (selectedBlock?.attrs.runtimePolicy as BaseBlockAttrs["runtimePolicy"] | undefined) ?? {
+      mode: "sealed",
+      allowedPaths: [],
+    }
+  );
+  const integrationBinding = $derived(
+    (selectedBlock?.attrs.integrationBinding as BaseBlockAttrs["integrationBinding"] | undefined) ??
+      null
+  );
+  const supportsRuntimePolicy = $derived(
+    Boolean(
+      selectedBlock &&
+        blockDef &&
+        (selectedBlock.attrs.blockType === "live-value" ||
+          "liveMode" in ((blockDef.defaults as Record<string, unknown>) ?? {}) ||
+          "integrationBinding" in ((blockDef.defaults as Record<string, unknown>) ?? {}))
+    )
+  );
+
+  function updateRuntimePolicy(
+    updates: Partial<NonNullable<BaseBlockAttrs["runtimePolicy"]>>
+  ): void {
+    const current = (selectedBlock?.attrs.runtimePolicy as BaseBlockAttrs["runtimePolicy"]) ?? {
+      mode: "sealed",
+      allowedPaths: [],
+    };
+
+    updateBlockAttr("runtimePolicy", {
+      ...current,
+      ...updates,
+    });
+  }
+
+  function updateRuntimeCondition(
+    updates: Partial<NonNullable<NonNullable<BaseBlockAttrs["runtimePolicy"]>["condition"]>>
+  ): void {
+    const current =
+      (selectedBlock?.attrs.runtimePolicy as BaseBlockAttrs["runtimePolicy"]) ?? null;
+    const condition = current?.condition ?? {
+      field: "",
+      operator: "exists",
+    };
+
+    updateBlockAttr("runtimePolicy", {
+      ...(current ?? { mode: "sealed", allowedPaths: [] }),
+      condition: {
+        ...condition,
+        ...updates,
+      },
+    });
+  }
+
+  function clearRuntimeCondition(): void {
+    const current =
+      (selectedBlock?.attrs.runtimePolicy as BaseBlockAttrs["runtimePolicy"]) ?? null;
+    if (!current) return;
+
+    updateBlockAttr("runtimePolicy", {
+      ...current,
+      condition: undefined,
+    });
+  }
+
+  function updateIntegrationBinding(
+    updates: Partial<NonNullable<BaseBlockAttrs["integrationBinding"]>>
+  ): void {
+    const current =
+      (selectedBlock?.attrs.integrationBinding as BaseBlockAttrs["integrationBinding"]) ?? {
+        integration: "",
+        externalObjectType: "",
+        externalObjectIdPath: "",
+      };
+
+    updateBlockAttr("integrationBinding", {
+      ...current,
+      ...updates,
+    });
+  }
+
+  function clearIntegrationBinding(): void {
+    updateBlockAttr("integrationBinding", null);
+  }
 </script>
 
 <div class={EDITOR_PANEL_LAYOUT.shell}>
@@ -269,13 +354,182 @@
         </div>
       </section>
 
+      {#if supportsRuntimePolicy}
+        <section class="space-y-3 rounded-xl border border-border/50 bg-card/60 p-3">
+          <Label class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Runtime Policy</Label>
+
+          <div class="grid gap-3">
+            <div class="space-y-1.5">
+              <Label class="text-[10px] text-muted-foreground/70 pl-0.5">Post-seal mode</Label>
+              <Select.Root
+                type="single"
+                value={runtimePolicy?.mode ?? "sealed"}
+                onValueChange={(v: string) =>
+                  updateRuntimePolicy({
+                    mode: v as NonNullable<BaseBlockAttrs["runtimePolicy"]>["mode"],
+                    allowedPaths:
+                      v === "sealed"
+                        ? []
+                        : runtimePolicy?.allowedPaths?.length
+                          ? runtimePolicy.allowedPaths
+                          : ["data.value"],
+                  })}
+              >
+                <Select.Trigger class="h-10 bg-background border-border/60 rounded-md px-3 text-sm">
+                  {#snippet children()}
+                    <span class="truncate capitalize">{runtimePolicy?.mode ?? "sealed"}</span>
+                  {/snippet}
+                </Select.Trigger>
+                <Select.Content class="z-[70] rounded-md border-border shadow-md">
+                  <Select.Item value="sealed" label="Sealed">Sealed</Select.Item>
+                  <Select.Item value="live_append_only" label="Append only">Append only</Select.Item>
+                  <Select.Item value="live_replaceable" label="Replaceable">Replaceable</Select.Item>
+                </Select.Content>
+              </Select.Root>
+            </div>
+
+            <div class="space-y-1.5">
+              <Label class="text-[10px] text-muted-foreground/70 pl-0.5">Allowed mutation paths</Label>
+              <Input
+                value={(runtimePolicy?.allowedPaths ?? []).join(", ")}
+                oninput={(e: Event & { currentTarget: HTMLInputElement }) =>
+                  updateRuntimePolicy({
+                    allowedPaths: e.currentTarget.value
+                      .split(",")
+                      .map((value) => value.trim())
+                      .filter(Boolean),
+                  })}
+                class="h-9 bg-background border-border/60 rounded-md text-sm"
+                placeholder="data.value"
+              />
+            </div>
+
+            <div class="rounded-lg border border-border/40 bg-card/40 p-3 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex flex-col">
+                  <Label class="text-[11px] font-medium text-foreground">Activation condition</Label>
+                  <span class="text-[10px] text-muted-foreground">Optional runtime gate before this block can mutate</span>
+                </div>
+                <Switch
+                  checked={Boolean(runtimePolicy?.condition)}
+                  onCheckedChange={(enabled: boolean) =>
+                    enabled
+                      ? updateRuntimeCondition({ field: "", operator: "exists" })
+                      : clearRuntimeCondition()}
+                  class="scale-90"
+                />
+              </div>
+
+              {#if runtimePolicy?.condition}
+                <div class="grid gap-2">
+                  <Input
+                    value={runtimePolicy.condition.field}
+                    oninput={(e: Event & { currentTarget: HTMLInputElement }) =>
+                      updateRuntimeCondition({ field: e.currentTarget.value })}
+                    class="h-8 bg-background border-border/60 rounded-md text-xs"
+                    placeholder="block:payment_status:data.value"
+                  />
+                  <Select.Root
+                    type="single"
+                    value={runtimePolicy.condition.operator}
+                    onValueChange={(v: string) =>
+                      updateRuntimeCondition({
+                        operator: v as NonNullable<NonNullable<BaseBlockAttrs["runtimePolicy"]>["condition"]>["operator"],
+                      })}
+                  >
+                    <Select.Trigger class="h-8 bg-background border-border/60 rounded-md px-3 text-xs">
+                      {#snippet children()}
+                        <span class="truncate">{runtimePolicy.condition.operator}</span>
+                      {/snippet}
+                    </Select.Trigger>
+                    <Select.Content class="z-[70] rounded-md border-border shadow-md">
+                      <Select.Item value="exists" label="Exists">Exists</Select.Item>
+                      <Select.Item value="eq" label="Equals">Equals</Select.Item>
+                      <Select.Item value="neq" label="Not equal">Not equal</Select.Item>
+                      <Select.Item value="gt" label="Greater than">Greater than</Select.Item>
+                      <Select.Item value="gte" label="Greater or equal">Greater or equal</Select.Item>
+                      <Select.Item value="lt" label="Less than">Less than</Select.Item>
+                      <Select.Item value="lte" label="Less or equal">Less or equal</Select.Item>
+                      <Select.Item value="in" label="In">In</Select.Item>
+                    </Select.Content>
+                  </Select.Root>
+                  {#if runtimePolicy.condition.operator !== "exists"}
+                    <Input
+                      value={String(runtimePolicy.condition.value ?? "")}
+                      oninput={(e: Event & { currentTarget: HTMLInputElement }) =>
+                        updateRuntimeCondition({ value: e.currentTarget.value })}
+                      class="h-8 bg-background border-border/60 rounded-md text-xs"
+                      placeholder="Comparison value"
+                    />
+                  {/if}
+                </div>
+              {/if}
+            </div>
+
+            <div class="rounded-lg border border-border/40 bg-card/40 p-3 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex flex-col">
+                  <Label class="text-[11px] font-medium text-foreground">Integration owner</Label>
+                  <span class="text-[10px] text-muted-foreground">Optional external system that owns this runtime value</span>
+                </div>
+                <Switch
+                  checked={Boolean(integrationBinding)}
+                  onCheckedChange={(enabled: boolean) =>
+                    enabled
+                      ? updateIntegrationBinding({
+                          integration: "",
+                          externalObjectType: "",
+                          externalObjectIdPath: "",
+                        })
+                      : clearIntegrationBinding()}
+                  class="scale-90"
+                />
+              </div>
+
+              {#if integrationBinding}
+                <div class="grid gap-2">
+                  <Input
+                    value={integrationBinding.integration}
+                    oninput={(e: Event & { currentTarget: HTMLInputElement }) =>
+                      updateIntegrationBinding({ integration: e.currentTarget.value })}
+                    class="h-8 bg-background border-border/60 rounded-md text-xs"
+                    placeholder="hubspot"
+                  />
+                  <Input
+                    value={integrationBinding.externalObjectType}
+                    oninput={(e: Event & { currentTarget: HTMLInputElement }) =>
+                      updateIntegrationBinding({ externalObjectType: e.currentTarget.value })}
+                    class="h-8 bg-background border-border/60 rounded-md text-xs"
+                    placeholder="deal"
+                  />
+                  <Input
+                    value={integrationBinding.externalObjectIdPath}
+                    oninput={(e: Event & { currentTarget: HTMLInputElement }) =>
+                      updateIntegrationBinding({ externalObjectIdPath: e.currentTarget.value })}
+                    class="h-8 bg-background border-border/60 rounded-md text-xs"
+                    placeholder="payload.dealId"
+                  />
+                  <Input
+                    value={integrationBinding.idempotencyKeyPath ?? ""}
+                    oninput={(e: Event & { currentTarget: HTMLInputElement }) =>
+                      updateIntegrationBinding({ idempotencyKeyPath: e.currentTarget.value || undefined })}
+                    class="h-8 bg-background border-border/60 rounded-md text-xs"
+                    placeholder="payload.eventId"
+                  />
+                </div>
+              {/if}
+            </div>
+          </div>
+        </section>
+      {/if}
+
       {#if Object.keys(blockDef.defaults as object).length > 1}
         <section class="space-y-3 rounded-xl border border-border/50 bg-card/60 p-3">
             <Label class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Configuration</Label>
             
             <div class="grid gap-3">
                 {#each Object.entries(selectedBlock.attrs.data as Record<string, unknown>) as [key, value] (key)}
-                    {#if key !== 'label' && key in (blockDef.defaults as Record<string, unknown>)}
+                    {#if key !== 'label' && key !== 'liveMode' && key !== 'livePaths' && key !== 'liveCondition' && key !== 'integrationBinding' && key in (blockDef.defaults as Record<string, unknown>)}
                         <div class="space-y-1.5 p-3 rounded-lg border border-border/40 bg-card/40">
                             <Label class="text-[10px] font-medium text-muted-foreground uppercase">{key.replace(/([A-Z])/g, ' $1')}</Label>
                             

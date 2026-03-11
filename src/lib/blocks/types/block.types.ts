@@ -62,6 +62,25 @@ export interface BaseBlockAttrs {
   /** Condition expression (evaluated at runtime) */
   conditionExpr: string | null;
 
+  /** Explicit runtime mutation policy for post-seal live blocks */
+  runtimePolicy: {
+    mode: "sealed" | "live_append_only" | "live_replaceable";
+    allowedPaths: string[];
+    condition?: {
+      field: string;
+      operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "exists";
+      value?: unknown;
+    };
+  } | null;
+
+  /** Optional integration binding that owns runtime-fed values */
+  integrationBinding: {
+    integration: string;
+    externalObjectType: string;
+    externalObjectIdPath: string;
+    idempotencyKeyPath?: string;
+  } | null;
+
   /** Block-specific data (JSON) */
   data: Record<string, unknown>;
 }

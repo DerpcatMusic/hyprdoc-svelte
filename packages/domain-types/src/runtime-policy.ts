@@ -67,17 +67,23 @@ function normalizeIntegration(value: unknown): LiveBlockIntegrationBinding | und
 
 export function deriveLiveBlockPolicy(block: CanonicalSmartBlock): LiveBlockPolicy {
   const metadata = asRecord(block.data.livePolicy) ?? asRecord(block.data.runtimePolicy);
+  const explicitRuntimePolicy = block.runtimePolicy;
   const metadataMode = asMode(metadata?.mode);
   const explicitMode = asMode(block.data.liveMode) ?? asMode(block.data.postSealMode);
   const explicitAllowedPaths = asStringArray(block.data.livePaths);
   const metadataAllowedPaths = asStringArray(metadata?.allowedPaths);
   const mode =
+    explicitRuntimePolicy?.mode ??
     explicitMode ??
     metadataMode ??
     (block.blockType === "signature" ? "sealed" : "sealed");
 
   const allowedPaths =
-    explicitAllowedPaths.length > 0 ? explicitAllowedPaths : metadataAllowedPaths;
+    explicitRuntimePolicy && explicitRuntimePolicy.allowedPaths.length > 0
+      ? explicitRuntimePolicy.allowedPaths
+      : explicitAllowedPaths.length > 0
+        ? explicitAllowedPaths
+        : metadataAllowedPaths;
 
   return {
     blockId: block.id,
@@ -89,8 +95,12 @@ export function deriveLiveBlockPolicy(block: CanonicalSmartBlock): LiveBlockPoli
         : mode === "sealed"
           ? []
           : ["data.value"],
-    condition: normalizeCondition(block.data.liveCondition) ?? normalizeCondition(metadata?.condition),
+    condition:
+      explicitRuntimePolicy?.condition ??
+      normalizeCondition(block.data.liveCondition) ??
+      normalizeCondition(metadata?.condition),
     integration:
+      block.integrationBinding ??
       normalizeIntegration(block.data.integrationBinding) ??
       normalizeIntegration(metadata?.integration),
     metadata: metadata ?? undefined,
