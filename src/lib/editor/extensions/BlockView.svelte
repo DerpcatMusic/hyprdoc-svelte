@@ -55,6 +55,21 @@
 
   // Use definition name or block type if label is missing
   const displayLabel = $derived(attrs.data?.label || definition?.name || blockType);
+  const runtimeModeLabel = $derived.by(() => {
+    switch (attrs.runtimePolicy?.mode) {
+      case "live_append_only":
+        return "Append-only";
+      case "live_replaceable":
+        return "Live";
+      default:
+        return null;
+    }
+  });
+  const integrationOwnerLabel = $derived(
+    attrs.integrationBinding?.integration
+      ? `${attrs.integrationBinding.integration}`
+      : null
+  );
 
   let isHovered = $state(false);
   let isRenaming = $state(false);
@@ -208,6 +223,18 @@
       {#if attrs.required}
         <div class="flex rotate-2 items-center gap-1.5 rounded-sm border border-destructive bg-destructive px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-destructive-foreground shadow-sm transition-transform hover:rotate-0">
           REQ
+        </div>
+      {/if}
+
+      {#if runtimeModeLabel}
+        <div class="flex rotate-1 items-center gap-1.5 rounded-sm border border-primary/30 bg-primary/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-primary shadow-sm transition-transform hover:rotate-0">
+          {runtimeModeLabel}
+        </div>
+      {/if}
+
+      {#if integrationOwnerLabel}
+        <div class="flex -rotate-1 items-center gap-1.5 rounded-sm border border-border bg-background px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-muted-foreground shadow-sm transition-transform hover:rotate-0">
+          {integrationOwnerLabel}
         </div>
       {/if}
     </div>
