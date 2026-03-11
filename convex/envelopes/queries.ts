@@ -1,16 +1,19 @@
 import {
   type CanonicalSmartBlock,
+  deriveLiveBlockPolicy,
   extractSmartBlocksFromContent,
   normalizeSmartBlockSnapshot,
 } from "@hyprdoc/domain-types";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { z, zid, zProtectedQuery } from "@/convex/lib/core";
+import { hashContent } from "@/convex/lib/crypto";
 import { getDocumentWithVersions } from "@/convex/lib/relationships";
 import { batchLoadUsers } from "@/convex/lib/services/batch_loader";
 import {
   isDocumentLocked,
   isDocumentSealed,
 } from "@/convex/lib/services/sealing_service";
+import { stableStringify } from "@/convex/lib/stable_json";
 
 const DEFAULT_AUDIT_LOG_LIMIT = 12;
 const DEFAULT_LIVE_EVENT_LIMIT = 12;
@@ -271,6 +274,155 @@ function summarizeCurrentBlock(input: {
       updatedAt: lastActivityAt ?? undefined,
       staleAfterMs: BLOCK_STALE_AFTER_MS,
       pulse,
+    },
+  };
+}
+
+function getCurrentBlocks(document: Doc<"documents">) {
+  const normalized = normalizeSmartBlockSnapshot(document.blocks);
+  return normalized.length > 0
+    ? normalized
+    : extractSmartBlocksFromContent(document.content);
+}
+
+async function hashCanonicalBlock(block: CanonicalSmartBlock) {
+  return hashContent(stableStringify(block));
+}
+
+async function buildRuntimeProjection(input: {
+  document: Doc<"documents"> & { kind: "envelope" };
+  currentBlocks: CanonicalSmartBlock[];
+  liveState: Doc<"liveContractStates"> | null;
+  allLiveEvents: Doc<"liveContractEvents">[];
+  allLineageEvents: Doc<"blockLineageEvents">[];
+  usersById: UserMap;
+}) {
+  const currentBlockIds = new Set<string>(
+    input.currentBlocks.map((block) => block.id)
+  );
+  const earliestLineageByBlockId = new Map<string, Doc<"blockLineageEvents">>();
+  const latestLineageByBlockId = new Map<string, Doc<"blockLineageEvents">>();
+
+  for (const event of input.allLineageEvents) {
+    if (!latestLineageByBlockId.has(event.blockId)) {
+      latestLineageByBlockId.set(event.blockId, event);
+    }
+    earliestLineageByBlockId.set(event.blockId, event);
+  }
+
+  const anchors = await Promise.all(
+    input.currentBlocks.map(async (block) => {
+      const earliestEvent = earliestLineageByBlockId.get(block.id);
+      return {
+        blockId: block.id,
+        blockType: block.blockType,
+        sealedBlockHash: earliestEvent?.blockHash ?? (await hashCanonicalBlock(block)),
+        parentBlockId: earliestEvent?.parentBlockId ?? undefined,
+        parentAnchorHash: earliestEvent?.parentAnchorHash ?? undefined,
+      };
+    })
+  );
+
+  const anchorByBlockId = new Map(
+    anchors.map((anchor) => [anchor.blockId, anchor] as const)
+  );
+
+  const liveEvents = [...input.allLiveEvents]
+    .sort((left, right) => left.createdAt - right.createdAt)
+    .map((event) => {
+      const match = getLiveBlockMatch(event, currentBlockIds);
+      return {
+        id: String(event._id),
+        documentId: String(event.documentId),
+        eventType: event.eventType,
+        source: event.source,
+        payload: event.payload,
+        createdAt: event.createdAt,
+        eventHash: event.eventHash,
+        previousHash: event.previousHash ?? null,
+        matchedBlockId: match?.blockId,
+        matchedBy: match?.matchedBy,
+        createdBy: summarizeUser(event.createdBy, input.usersById),
+      };
+    });
+
+  const latestLiveEventByBlockId = new Map<
+    string,
+    (typeof liveEvents)[number]
+  >();
+  for (const event of liveEvents) {
+    if (event.matchedBlockId) {
+      latestLiveEventByBlockId.set(event.matchedBlockId, event);
+    }
+  }
+
+  const lineageEvents = [...input.allLineageEvents]
+    .sort((left, right) => left.createdAt - right.createdAt)
+    .map((event) => ({
+      id: String(event._id),
+      documentId: String(event.documentId),
+      blockId: event.blockId,
+      parentBlockId: event.parentBlockId ?? null,
+      changeType: event.changeType,
+      reason: event.reason ?? null,
+      how: event.how ?? null,
+      blockHash: event.blockHash,
+      previousBlockHash: event.previousBlockHash ?? null,
+      parentAnchorHash: event.parentAnchorHash ?? null,
+      lineageHash: event.lineageHash,
+      createdAt: event.createdAt,
+      createdBy: summarizeUser(event.createdBy, input.usersById),
+    }));
+
+  const chainHeads = input.currentBlocks.map((block) => {
+    const anchor = anchorByBlockId.get(block.id);
+    const latestLiveEvent = latestLiveEventByBlockId.get(block.id);
+    const latestLineageEvent = latestLineageByBlockId.get(block.id);
+
+    return {
+      documentId: String(input.document._id),
+      blockId: block.id,
+      baseSealHash:
+        input.liveState?.baseSealHash ?? input.document.contentHash ?? "",
+      sealedBlockHash:
+        anchor?.sealedBlockHash ?? latestLineageEvent?.blockHash ?? "",
+      currentEventHash: latestLiveEvent?.eventHash,
+      currentStateHash: input.liveState?.stateHash,
+      matchedBy: latestLiveEvent?.matchedBy,
+      eventType: latestLiveEvent?.eventType,
+      source: latestLiveEvent?.source,
+      updatedAt:
+        latestLiveEvent?.createdAt ??
+        latestLineageEvent?.createdAt ??
+        input.liveState?.updatedAt ??
+        input.document.updatedAt,
+    };
+  });
+
+  const baseSealHash = input.liveState?.baseSealHash ?? input.document.contentHash ?? "";
+
+  return {
+    snapshot: {
+      documentId: String(input.document._id),
+      documentVersion: input.document.sealedVersion ?? input.document.version,
+      sealHash: baseSealHash,
+      sealedAt: input.document.sealedAt ?? input.document.createdAt,
+    },
+    anchors,
+    policies: input.currentBlocks.map(deriveLiveBlockPolicy),
+    chainHeads,
+    liveEvents,
+    lineageEvents,
+    integrity: {
+      baseSealHash,
+      currentSealHash: input.document.contentHash ?? null,
+      currentStateHash: input.liveState?.stateHash ?? null,
+      currentLastEventHash: input.liveState?.lastEventHash ?? null,
+      isSealAnchorCurrent: input.liveState
+        ? input.liveState.baseSealHash === input.document.contentHash
+        : Boolean(input.document.contentHash),
+      totalLiveEventCount: input.allLiveEvents.length,
+      totalLineageEventCount: input.allLineageEvents.length,
     },
   };
 }
@@ -561,13 +713,10 @@ export const getDashboard = zProtectedQuery({
         })
         .filter(Boolean) as Array<readonly [string, string]>
     );
-    const currentBlocks = (() => {
-      const normalized = normalizeSmartBlockSnapshot(document.blocks);
-      return normalized.length > 0
-        ? normalized
-        : extractSmartBlocksFromContent(document.content);
-    })();
-    const currentBlockIds = new Set(currentBlocks.map((block) => block.id));
+    const currentBlocks: CanonicalSmartBlock[] = getCurrentBlocks(document);
+    const currentBlockIds = new Set<string>(
+      currentBlocks.map((block: CanonicalSmartBlock) => block.id)
+    );
     const latestLineageByBlockId = new Map<string, Doc<"blockLineageEvents">>();
     for (const event of allLineageEvents) {
       if (!latestLineageByBlockId.has(event.blockId)) {
@@ -604,7 +753,7 @@ export const getDashboard = zProtectedQuery({
     }
 
     const now = Date.now();
-    const currentSmartBlocks = currentBlocks.map((block) =>
+    const currentSmartBlocks = currentBlocks.map((block: CanonicalSmartBlock) =>
       summarizeCurrentBlock({
         block,
         partyName: block.partyId
@@ -761,5 +910,70 @@ export const getDashboard = zProtectedQuery({
       },
       currentSmartBlocks,
     };
+  },
+});
+
+export const getRuntimeProjection = zProtectedQuery({
+  args: {
+    documentId: zid("documents"),
+  },
+  handler: async (ctx, args) => {
+    const document = await ctx.db.get(args.documentId);
+    if (!document) {
+      return null;
+    }
+    if (document.kind !== "envelope") {
+      throw new Error("Runtime projection is only available for envelopes");
+    }
+
+    const [liveState, allLineageEvents, allLiveEvents] = await Promise.all([
+      ctx.db
+        .query("liveContractStates")
+        .withIndex("by_document", (q) => q.eq("documentId", document._id))
+        .first(),
+      ctx.db
+        .query("blockLineageEvents")
+        .withIndex("by_document_and_created_at", (q) =>
+          q.eq("documentId", document._id)
+        )
+        .order("desc")
+        .collect(),
+      ctx.db
+        .query("liveContractEvents")
+        .withIndex("by_document_and_created_at", (q) =>
+          q.eq("documentId", document._id)
+        )
+        .order("desc")
+        .collect(),
+    ]);
+
+    const userIds = new Set<string>();
+    for (const event of allLineageEvents) {
+      if (event.createdBy) {
+        userIds.add(String(event.createdBy));
+      }
+    }
+    for (const event of allLiveEvents) {
+      if (event.createdBy) {
+        userIds.add(String(event.createdBy));
+      }
+    }
+
+    const usersById =
+      userIds.size > 0
+        ? await batchLoadUsers(
+            ctx.db,
+            Array.from(userIds).map((id) => id as Id<"users">)
+          )
+        : new Map<string, Doc<"users">>();
+
+    return buildRuntimeProjection({
+      document: document as Doc<"documents"> & { kind: "envelope" },
+      currentBlocks: getCurrentBlocks(document),
+      liveState,
+      allLiveEvents,
+      allLineageEvents,
+      usersById,
+    });
   },
 });

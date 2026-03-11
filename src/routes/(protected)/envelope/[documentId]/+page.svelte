@@ -5,10 +5,17 @@
   import { api } from "@/convex/_generated/api";
   import type { Id } from "@/convex/_generated/dataModel";
   import type * as envelopeQueries from "@/convex/envelopes/queries";
+  import type {
+    LiveContractProjection,
+    ProjectionVerificationResult,
+  } from "@hyprdoc/domain-types";
   import { browser } from "$app/environment";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { verifySealHash } from "../../../../../packages/contract-core/src/index.ts";
+  import {
+    verifyRuntimeProjection,
+    verifySealHash,
+  } from "../../../../../packages/contract-core/src/index.ts";
   import EnvelopeLiveBlockStatusList from "$lib/components/envelope/EnvelopeLiveBlockStatusList.svelte";
   import type { EnvelopeBlockStatus } from "$lib/components/envelope/types";
   import { Badge } from "$lib/components/ui/badge";
@@ -32,6 +39,8 @@
   )["envelopes/queries"];
   const getEnvelopeDashboard =
     envelopeDashboardApi.getDashboard as unknown as FunctionReference<"query">;
+  const getRuntimeProjection =
+    envelopeDashboardApi.getRuntimeProjection as unknown as FunctionReference<"query">;
 
   const dashboardQuery = useQuery(getEnvelopeDashboard, () => ({
     documentId,
@@ -40,13 +49,24 @@
     lineageEventLimit: 8,
     versionLimit: 6,
   }));
+  const runtimeProjectionQuery = useQuery(getRuntimeProjection, () => ({
+    documentId,
+  }));
 
   const documentData = $derived(documentQuery.data);
   const dashboard = $derived(dashboardQuery.data);
-  const isLoading = $derived(
-    documentQuery.isLoading || dashboardQuery.isLoading
+  const runtimeProjection = $derived(
+    (runtimeProjectionQuery.data as LiveContractProjection | null | undefined) ??
+      null
   );
-  const error = $derived(documentQuery.error ?? dashboardQuery.error);
+  const isLoading = $derived(
+    documentQuery.isLoading ||
+      dashboardQuery.isLoading ||
+      runtimeProjectionQuery.isLoading
+  );
+  const error = $derived(
+    documentQuery.error ?? dashboardQuery.error ?? runtimeProjectionQuery.error
+  );
 
   const envelope = $derived(
     documentData && documentData.kind === "envelope" ? documentData : null
@@ -124,12 +144,33 @@
     computedHash: string;
     matches: boolean;
   };
+  type RuntimeVerificationState =
+    | {
+        status: "idle" | "checking";
+        result: null;
+        error: null;
+      }
+    | {
+        status: "verified" | "invalid";
+        result: ProjectionVerificationResult;
+        error: null;
+      }
+    | {
+        status: "unavailable";
+        result: null;
+        error: string;
+      };
 
   let evidenceTab = $state("audit");
   let renderNow = $state(Date.now());
   let acknowledgedBlockHeads = $state<Record<string, string>>({});
   let ackStorageReady = $state(false);
   let selectedBlockId = $state<string | null>(null);
+  let runtimeVerification = $state<RuntimeVerificationState>({
+    status: "idle",
+    result: null,
+    error: null,
+  });
   let sealVerification = $state<SealVerificationState>({
     status: "idle",
     computedHash: null,
@@ -251,6 +292,53 @@
     };
   });
 
+  $effect(() => {
+    if (!browser || !runtimeProjection) {
+      runtimeVerification = {
+        status: "idle",
+        result: null,
+        error: null,
+      };
+      return;
+    }
+
+    let cancelled = false;
+    runtimeVerification = {
+      status: "checking",
+      result: null,
+      error: null,
+    };
+
+    void verifyRuntimeProjection(runtimeProjection)
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+
+        runtimeVerification = {
+          status: result.valid ? "verified" : "invalid",
+          result,
+          error: null,
+        };
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+
+        runtimeVerification = {
+          status: "unavailable",
+          result: null,
+          error:
+            error instanceof Error ? error.message : "Runtime verification unavailable",
+        };
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  });
+
   const progressValue = $derived(
     signatureState?.signerCount
       ? Math.round(
@@ -305,6 +393,35 @@
         return "Seal unchecked";
     }
   });
+  const runtimeVerificationTone = $derived.by(() => {
+    switch (runtimeVerification.status) {
+      case "verified":
+        return "border-status-success/20 bg-status-success-soft text-status-success";
+      case "invalid":
+        return "border-status-danger/20 bg-status-danger-soft text-status-danger";
+      case "unavailable":
+        return "border-status-warning/20 bg-status-warning-soft text-status-warning";
+      default:
+        return "border-border bg-muted text-muted-foreground";
+    }
+  });
+  const runtimeVerificationLabel = $derived.by(() => {
+    switch (runtimeVerification.status) {
+      case "verified":
+        return "Runtime chain verified";
+      case "invalid":
+        return "Runtime proof mismatch";
+      case "unavailable":
+        return "Runtime verifier unavailable";
+      case "checking":
+        return "Checking runtime";
+      default:
+        return "Runtime unchecked";
+    }
+  });
+  const runtimeVerificationIssue = $derived(
+    runtimeVerification.result?.issues[0] ?? runtimeVerification.error ?? null
+  );
 
   const smartBlockRows = $derived.by(() =>
     currentSmartBlocks.map((block: CurrentSmartBlock) => {
@@ -791,6 +908,14 @@
                 >
                   {sealVerificationLabel}
                 </span>
+                <span
+                  class={cn(
+                    "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]",
+                    runtimeVerificationTone
+                  )}
+                >
+                  {runtimeVerificationLabel}
+                </span>
               </div>
             </div>
 
@@ -880,6 +1005,17 @@
                     {sealVerificationLabel}
                   </span>
                 </div>
+                <div class="flex items-start justify-between gap-4">
+                  <span class="text-muted-foreground">Runtime verifier</span>
+                  <span
+                    class={cn(
+                      "max-w-[12rem] rounded-full border px-2 py-0.5 text-right text-[10px] font-semibold uppercase tracking-[0.16em]",
+                      runtimeVerificationTone
+                    )}
+                  >
+                    {runtimeVerificationLabel}
+                  </span>
+                </div>
                 {#if sealVerification.computedHash}
                   <div class="flex items-start justify-between gap-4">
                     <span class="text-muted-foreground">Computed hash</span>
@@ -887,6 +1023,37 @@
                       class="max-w-[12rem] truncate text-right font-mono text-xs"
                     >
                       {sealVerification.computedHash}
+                    </span>
+                  </div>
+                {/if}
+                {#if runtimeVerification.result}
+                  <div class="flex items-start justify-between gap-4">
+                    <span class="text-muted-foreground">Live events</span>
+                    <span class="text-right font-medium">
+                      {runtimeVerification.result.eventChain.verifiedCount}/
+                      {runtimeProjection?.integrity.totalLiveEventCount ?? 0}
+                    </span>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <span class="text-muted-foreground">Lineage events</span>
+                    <span class="text-right font-medium">
+                      {runtimeVerification.result.lineage.verifiedCount}/
+                      {runtimeProjection?.integrity.totalLineageEventCount ?? 0}
+                    </span>
+                  </div>
+                  <div class="flex items-start justify-between gap-4">
+                    <span class="text-muted-foreground">Chain heads</span>
+                    <span class="text-right font-medium">
+                      {runtimeVerification.result.chainHeads.verifiedCount}/
+                      {runtimeProjection?.chainHeads.length ?? 0}
+                    </span>
+                  </div>
+                {/if}
+                {#if runtimeVerificationIssue}
+                  <div class="flex items-start justify-between gap-4">
+                    <span class="text-muted-foreground">Runtime note</span>
+                    <span class="max-w-[12rem] text-right text-xs text-muted-foreground">
+                      {runtimeVerificationIssue}
                     </span>
                   </div>
                 {/if}

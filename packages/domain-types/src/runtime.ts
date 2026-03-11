@@ -45,7 +45,56 @@ export interface RuntimeChainHead {
   sealedBlockHash: HashHex;
   currentEventHash?: HashHex;
   currentStateHash?: HashHex;
+  matchedBy?: string;
+  eventType?: string;
+  source?: LiveActorSource;
   updatedAt: number;
+}
+
+export interface RuntimeActorSummary {
+  id: string;
+  name: string | null;
+  email: string | null;
+}
+
+export interface RuntimeLiveEvent {
+  id: string;
+  documentId: string;
+  eventType: string;
+  source: LiveActorSource;
+  payload: unknown;
+  createdAt: number;
+  eventHash: HashHex;
+  previousHash?: HashHex | null;
+  matchedBlockId?: string;
+  matchedBy?: string;
+  createdBy?: RuntimeActorSummary | null;
+}
+
+export interface RuntimeLineageEvent {
+  id: string;
+  documentId: string;
+  blockId: string;
+  parentBlockId?: string | null;
+  changeType: "created" | "updated" | "deleted";
+  reason?: string | null;
+  how?: string | null;
+  blockHash: HashHex;
+  previousBlockHash?: HashHex | null;
+  parentAnchorHash?: HashHex | null;
+  lineageHash: HashHex;
+  createdAt: number;
+  createdBy?: RuntimeActorSummary | null;
+}
+
+export interface ProjectionIntegrityState {
+  baseSealHash: HashHex;
+  currentSealHash?: HashHex | null;
+  currentStateHash?: HashHex | null;
+  currentLastEventHash?: HashHex | null;
+  isSealAnchorCurrent: boolean;
+  totalLiveEventCount: number;
+  totalLineageEventCount: number;
 }
 
 export interface LiveContractProjection {
@@ -53,6 +102,9 @@ export interface LiveContractProjection {
   anchors: SealedBlockAnchor[];
   policies: LiveBlockPolicy[];
   chainHeads: RuntimeChainHead[];
+  liveEvents: RuntimeLiveEvent[];
+  lineageEvents: RuntimeLineageEvent[];
+  integrity: ProjectionIntegrityState;
 }
 
 export interface ProofVerificationRequest {
@@ -67,4 +119,32 @@ export interface ProofVerificationResult {
   latestStateHash?: HashHex;
   failureCode?: "seal_mismatch" | "event_hash_mismatch" | "unauthorized_mutation";
   details?: Record<string, unknown>;
+}
+
+export interface ProjectionVerificationResult {
+  valid: boolean;
+  issues: string[];
+  sealAnchor: {
+    valid: boolean;
+    baseSealHash: HashHex;
+    currentSealHash?: HashHex | null;
+  };
+  eventChain: {
+    valid: boolean;
+    verifiedCount: number;
+    computedHeadHash?: HashHex | null;
+    storedHeadHash?: HashHex | null;
+    invalidEventId?: string;
+  };
+  lineage: {
+    valid: boolean;
+    verifiedCount: number;
+    invalidEventId?: string;
+    invalidBlockId?: string;
+  };
+  chainHeads: {
+    valid: boolean;
+    verifiedCount: number;
+    invalidBlockId?: string;
+  };
 }

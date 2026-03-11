@@ -116,10 +116,17 @@ export type {
   LiveBlockPolicy,
   LiveBlockPolicyMode,
   LiveContractProjection,
+  ProjectionIntegrityState,
+  ProjectionVerificationResult,
   ProofVerificationRequest,
   ProofVerificationResult,
+  RuntimeActorSummary,
   RuntimeChainHead,
+  RuntimeLineageEvent,
+  RuntimeLiveEvent,
 } from "./runtime";
+
+export { deriveLiveBlockPolicy } from "./runtime-policy";
 
 export {
   extractSmartBlocksFromContent,
