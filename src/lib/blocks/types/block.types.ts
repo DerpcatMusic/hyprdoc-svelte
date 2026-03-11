@@ -118,6 +118,12 @@ export interface BlockDefinition<TData = unknown> {
   /** Default values for new block instances */
   defaults: TData;
 
+  /** Default runtime mutation policy for this block type */
+  runtimeDefaults?: BaseBlockAttrs["runtimePolicy"];
+
+  /** Default integration owner for this block type */
+  integrationDefaults?: BaseBlockAttrs["integrationBinding"];
+
   /** Dynamic import for the Svelte component */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   component: () => Promise<{ default: any }>;

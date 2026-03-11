@@ -7,16 +7,18 @@
    */
 
   import type { BlockMode } from "$lib/blocks/types";
+  import type { BaseBlockAttrs } from "$lib/blocks/types";
   import type { LiveValueData } from "$lib/blocks/definitions/live-value.block";
 
   interface Props {
     mode: BlockMode;
+    attrs: BaseBlockAttrs;
     data: LiveValueData;
     updateData: (updates: Partial<LiveValueData>) => void;
     selected: boolean;
   }
 
-  const { mode, data, updateData, selected }: Props = $props();
+  const { mode, attrs, data, updateData, selected }: Props = $props();
 
   const isEditing = $derived(mode === "edit");
   const renderedValue = $derived.by(() => {
@@ -43,7 +45,7 @@
     data.value !== null && data.value !== undefined && data.value !== ""
   );
   const liveModeLabel = $derived.by(() => {
-    switch (data.liveMode) {
+    switch (attrs.runtimePolicy?.mode) {
       case "live_append_only":
         return "Append-only";
       case "live_replaceable":
@@ -53,8 +55,8 @@
     }
   });
   const integrationLabel = $derived(
-    data.integrationBinding?.integration
-      ? `${data.integrationBinding.integration} runtime`
+    attrs.integrationBinding?.integration
+      ? `${attrs.integrationBinding.integration} runtime`
       : "Manual runtime"
   );
 
@@ -73,7 +75,11 @@
   }
 </script>
 
-<div class="live-value-block" class:selected data-live-mode={data.liveMode}>
+<div
+  class="live-value-block"
+  class:selected
+  data-live-mode={attrs.runtimePolicy?.mode ?? "sealed"}
+>
   <div class="block-shell">
     <div class="block-header">
       <div class="header-copy">

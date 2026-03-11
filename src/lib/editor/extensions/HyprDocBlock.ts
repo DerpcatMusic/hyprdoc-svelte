@@ -176,22 +176,11 @@ export const HyprDocBlock = Node.create<HyprDocBlockOptions>({
             !Array.isArray(definition.defaults)
               ? (definition.defaults as Record<string, unknown>)
               : {};
-          const runtimeMode =
-            attrs.data?.liveMode ??
-            defaultData.liveMode ??
-            (attrs.blockType === "live-value" ? "live_replaceable" : "sealed");
-          const runtimePaths =
-            (attrs.data?.livePaths as string[] | undefined) ??
-            (defaultData.livePaths as string[] | undefined) ??
-            [];
-          const runtimeCondition =
-            (attrs.data?.liveCondition as Record<string, unknown> | undefined) ??
-            (defaultData.liveCondition as Record<string, unknown> | undefined) ??
-            undefined;
-          const integrationBinding =
-            (attrs.data?.integrationBinding as Record<string, unknown> | undefined) ??
-            (defaultData.integrationBinding as Record<string, unknown> | undefined) ??
-            null;
+          const runtimePolicy = definition?.runtimeDefaults ?? {
+            mode: attrs.blockType === "live-value" ? "live_replaceable" : "sealed",
+            allowedPaths: attrs.blockType === "live-value" ? ["data.value"] : [],
+          };
+          const integrationBinding = definition?.integrationDefaults ?? null;
 
           return chain()
             .insertContent({
@@ -207,11 +196,7 @@ export const HyprDocBlock = Node.create<HyprDocBlockOptions>({
                 required: attrs.required ?? false,
                 conditional: false,
                 conditionExpr: null,
-                runtimePolicy: {
-                  mode: runtimeMode,
-                  allowedPaths: Array.isArray(runtimePaths) ? runtimePaths : [],
-                  condition: runtimeCondition,
-                },
+                runtimePolicy,
                 integrationBinding,
               },
             })

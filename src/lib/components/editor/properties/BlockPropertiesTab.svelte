@@ -529,7 +529,7 @@
             
             <div class="grid gap-3">
                 {#each Object.entries(selectedBlock.attrs.data as Record<string, unknown>) as [key, value] (key)}
-                    {#if key !== 'label' && key !== 'liveMode' && key !== 'livePaths' && key !== 'liveCondition' && key !== 'integrationBinding' && key in (blockDef.defaults as Record<string, unknown>)}
+                    {#if key !== 'label' && key in (blockDef.defaults as Record<string, unknown>)}
                         <div class="space-y-1.5 p-3 rounded-lg border border-border/40 bg-card/40">
                             <Label class="text-[10px] font-medium text-muted-foreground uppercase">{key.replace(/([A-Z])/g, ' $1')}</Label>
                             
