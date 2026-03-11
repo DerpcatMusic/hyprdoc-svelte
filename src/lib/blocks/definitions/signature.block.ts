@@ -13,6 +13,8 @@ export const signatureDataSchema = z.object({
   signatureData: z.string().nullable().default(null), // Base64 SVG/PNG
   signedAt: z.string().nullable().default(null),
   signerName: z.string().nullable().default(null),
+  liveMode: z.literal("sealed").default("sealed"),
+  livePaths: z.array(z.string()).default([]),
 });
 
 export type SignatureData = z.infer<typeof signatureDataSchema>;
@@ -33,6 +35,8 @@ const signatureBlock: BlockDefinition<SignatureData> = {
     signatureData: null,
     signedAt: null,
     signerName: null,
+    liveMode: "sealed",
+    livePaths: [],
   },
 
   component: () => import("$lib/blocks/components/SignatureBlock.svelte"),

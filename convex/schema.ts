@@ -546,6 +546,7 @@ export default defineSchema(
         v.literal("requirement_met"),
         v.literal("action_enqueued"),
         v.literal("action_executed"),
+        v.literal("authorized_mutation"),
       ),
       source: v.union(
         v.literal("system"),

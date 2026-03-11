@@ -1,6 +1,11 @@
 import { internal } from '@/convex/_generated/api';
 import type { Doc, Id } from '@/convex/_generated/dataModel';
 import { zProtectedMutation, zProtectedQuery, z, zid } from '@/convex/lib/core';
+import {
+	deriveLiveBlockPolicy,
+	extractSmartBlocksFromContent,
+	normalizeSmartBlockSnapshot,
+} from '@hyprdoc/domain-types';
 import { hashContent } from '@/convex/lib/crypto';
 import { isDocumentSealed } from '@/convex/lib/services/sealing_service';
 import { stableStringify } from '@/convex/lib/stable_json';
@@ -9,6 +14,7 @@ const signalValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()
 const sourceSchema = z.enum(['system', 'owner', 'signer', 'integration']);
 const actionTypeSchema = z.enum(['notify', 'set_variable', 'append_note']);
 const requirementOperatorSchema = z.enum(['eq', 'gte', 'lte', 'present']);
+const mutationOpSchema = z.enum(['set', 'unset', 'append', 'remove', 'replace']);
 
 const requirementSchema = z.object({
 	id: z.string(),
@@ -40,6 +46,17 @@ const queuedActionSchema = z.object({
 
 type Requirement = z.infer<typeof requirementSchema>;
 type QueuedAction = z.infer<typeof queuedActionSchema>;
+type SignalValue = z.infer<typeof signalValueSchema>;
+type LiveSource = z.infer<typeof sourceSchema>;
+type MutationOp = z.infer<typeof mutationOpSchema>;
+type OwnedEnvelope = Doc<'documents'> & { kind: 'envelope'; contentHash: string };
+type RuntimeBlock = ReturnType<typeof normalizeSmartBlockSnapshot>[number];
+type LiveEventType =
+	| 'signal'
+	| 'requirement_met'
+	| 'action_enqueued'
+	| 'action_executed'
+	| 'authorized_mutation';
 
 function evaluateRequirement(
 	requirement: Requirement,
@@ -76,7 +93,7 @@ async function computeStateHash(input: {
 
 async function computeEventHash(input: {
 	documentId: string;
-	eventType: 'signal' | 'requirement_met' | 'action_enqueued' | 'action_executed';
+	eventType: LiveEventType;
 	source: 'system' | 'owner' | 'signer' | 'integration';
 	payload: unknown;
 	createdAt: number;
@@ -94,7 +111,93 @@ async function computeEventHash(input: {
 	);
 }
 
-type OwnedEnvelope = Doc<'documents'> & { kind: 'envelope'; contentHash: string };
+function getEnvelopeBlocks(document: Doc<'documents'>): RuntimeBlock[] {
+	const normalized = normalizeSmartBlockSnapshot(document.blocks);
+	return normalized.length > 0 ? normalized : extractSmartBlocksFromContent(document.content);
+}
+
+function getScalarVariableKey(blockId: string, path: string) {
+	return `block:${blockId}:${path}`;
+}
+
+function getBlockValue(block: RuntimeBlock, path: string): SignalValue | undefined {
+	if (path === 'data.value') {
+		const value = block.data.value;
+		return typeof value === 'string' ||
+			typeof value === 'number' ||
+			typeof value === 'boolean' ||
+			value === null
+			? value
+			: undefined;
+	}
+
+	return undefined;
+}
+
+function applyScalarMutation(
+	previousValue: SignalValue | undefined,
+	op: MutationOp,
+	nextValue: SignalValue | undefined,
+): SignalValue | undefined {
+	switch (op) {
+		case 'set':
+		case 'replace':
+			return nextValue ?? null;
+		case 'unset':
+		case 'remove':
+			return null;
+		case 'append':
+			if (typeof previousValue === 'string' || previousValue === null || previousValue === undefined) {
+				return `${previousValue ?? ''}${String(nextValue ?? '')}`;
+			}
+			return nextValue ?? previousValue ?? null;
+		default:
+			return nextValue;
+	}
+}
+
+function evaluateLiveCondition(
+	condition: { field: string; operator: string; value?: unknown } | undefined,
+	variables: Record<string, SignalValue>,
+) {
+	if (!condition) return true;
+
+	const currentValue = variables[condition.field];
+	switch (condition.operator) {
+		case 'exists':
+			return currentValue !== undefined && currentValue !== null;
+		case 'eq':
+			return currentValue === condition.value;
+		case 'neq':
+			return currentValue !== condition.value;
+		case 'gt':
+			return typeof currentValue === 'number' && typeof condition.value === 'number'
+				? currentValue > condition.value
+				: false;
+		case 'gte':
+			return typeof currentValue === 'number' && typeof condition.value === 'number'
+				? currentValue >= condition.value
+				: false;
+		case 'lt':
+			return typeof currentValue === 'number' && typeof condition.value === 'number'
+				? currentValue < condition.value
+				: false;
+		case 'lte':
+			return typeof currentValue === 'number' && typeof condition.value === 'number'
+				? currentValue <= condition.value
+				: false;
+		case 'in':
+			return Array.isArray(condition.value) ? condition.value.includes(currentValue) : false;
+		default:
+			return false;
+	}
+}
+
+function requireLiveStateStatus(state: Doc<'liveContractStates'>) {
+	if (state.status !== 'active') {
+		throw new Error('Live contract state is not active');
+	}
+}
 
 async function getOwnedEnvelopeOrThrow(
 	ctx: { db: { get: (id: Id<'documents'>) => Promise<Doc<'documents'> | null> } },
@@ -109,6 +212,66 @@ async function getOwnedEnvelopeOrThrow(
 		throw new Error('Envelope must be sealed before live state can start');
 	if (!document.contentHash) throw new Error('Missing envelope seal hash');
 	return document as OwnedEnvelope;
+}
+
+async function getLiveStateOrThrow(
+	ctx: {
+		db: {
+			query: (table: 'liveContractStates') => {
+				withIndex: (
+					name: 'by_document',
+					callback: (q: { eq: (field: 'documentId', value: Id<'documents'>) => unknown }) => unknown,
+				) => { first: () => Promise<Doc<'liveContractStates'> | null> };
+			};
+		};
+	},
+	documentId: Id<'documents'>,
+) {
+	const state = await ctx.db
+		.query('liveContractStates')
+		.withIndex('by_document', (q) => q.eq('documentId', documentId))
+		.first();
+	if (!state) throw new Error('Live contract state not initialized');
+	requireLiveStateStatus(state);
+	return state;
+}
+
+async function appendLiveEvent(ctx: {
+	db: {
+		insert: (table: 'liveContractEvents', value: Record<string, unknown>) => Promise<unknown>;
+	};
+	user: { _id: Id<'users'> };
+}, input: {
+	documentId: Id<'documents'>;
+	liveStateId: Id<'liveContractStates'>;
+	eventType: LiveEventType;
+	source: LiveSource;
+	payload: unknown;
+	createdAt: number;
+	previousHash?: string;
+}) {
+	const eventHash = await computeEventHash({
+		documentId: String(input.documentId),
+		eventType: input.eventType,
+		source: input.source,
+		payload: input.payload,
+		createdAt: input.createdAt,
+		previousHash: input.previousHash,
+	});
+
+	await ctx.db.insert('liveContractEvents', {
+		documentId: input.documentId,
+		liveStateId: input.liveStateId,
+		eventType: input.eventType,
+		source: input.source,
+		payload: input.payload,
+		previousHash: input.previousHash,
+		eventHash,
+		createdAt: input.createdAt,
+		createdBy: ctx.user._id,
+	});
+
+	return eventHash;
 }
 
 export const initializeLiveContract = zProtectedMutation({
@@ -188,12 +351,7 @@ export const ingestSignal = zProtectedMutation({
 	},
 	handler: async (ctx, args) => {
 		const document = await getOwnedEnvelopeOrThrow(ctx, args.documentId, ctx.user._id);
-		const state = await ctx.db
-			.query('liveContractStates')
-			.withIndex('by_document', (q) => q.eq('documentId', document._id))
-			.first();
-		if (!state) throw new Error('Live contract state not initialized');
-		if (state.status !== 'active') throw new Error('Live contract state is not active');
+		const state = await getLiveStateOrThrow(ctx, document._id);
 
 		const now = Date.now();
 		const variables = {
@@ -258,24 +416,14 @@ export const ingestSignal = zProtectedMutation({
 		}
 
 		for (const event of createdEvents) {
-			const eventHash = await computeEventHash({
-				documentId: String(document._id),
-				eventType: event.eventType,
-				source: event.source,
-				payload: event.payload,
-				createdAt: event.createdAt,
-				previousHash: lastEventHash,
-			});
-			await ctx.db.insert('liveContractEvents', {
+			const eventHash = await appendLiveEvent(ctx, {
 				documentId: document._id,
 				liveStateId: state._id,
 				eventType: event.eventType,
 				source: event.source,
 				payload: event.payload,
-				previousHash: lastEventHash,
-				eventHash,
 				createdAt: event.createdAt,
-				createdBy: ctx.user._id,
+				previousHash: lastEventHash,
 			});
 			lastEventHash = eventHash;
 		}
@@ -331,11 +479,7 @@ export const executePendingAction = zProtectedMutation({
 	},
 	handler: async (ctx, args) => {
 		const document = await getOwnedEnvelopeOrThrow(ctx, args.documentId, ctx.user._id);
-		const state = await ctx.db
-			.query('liveContractStates')
-			.withIndex('by_document', (q) => q.eq('documentId', document._id))
-			.first();
-		if (!state) throw new Error('Live contract state not initialized');
+		const state = await getLiveStateOrThrow(ctx, document._id);
 
 		const pendingActions = [...(state.pendingActions as QueuedAction[])];
 		const actionIndex = pendingActions.findIndex((a) => a.id === args.actionId);
@@ -351,20 +495,7 @@ export const executePendingAction = zProtectedMutation({
 			error: args.status === 'failed' ? args.error ?? 'Unknown action failure' : undefined,
 		};
 
-		const eventHash = await computeEventHash({
-			documentId: String(document._id),
-			eventType: 'action_executed',
-			source: 'system',
-			payload: {
-				actionId: args.actionId,
-				status: args.status,
-				error: pendingActions[actionIndex].error ?? null,
-			},
-			createdAt: now,
-			previousHash: state.lastEventHash,
-		});
-
-		await ctx.db.insert('liveContractEvents', {
+		const eventHash = await appendLiveEvent(ctx, {
 			documentId: document._id,
 			liveStateId: state._id,
 			eventType: 'action_executed',
@@ -374,10 +505,8 @@ export const executePendingAction = zProtectedMutation({
 				status: args.status,
 				error: pendingActions[actionIndex].error ?? null,
 			},
-			previousHash: state.lastEventHash,
-			eventHash,
 			createdAt: now,
-			createdBy: ctx.user._id,
+			previousHash: state.lastEventHash,
 		});
 
 		const stateHash = await computeStateHash({
@@ -396,6 +525,117 @@ export const executePendingAction = zProtectedMutation({
 		});
 
 		return { stateHash, eventHash };
+	},
+});
+
+export const applyAuthorizedBlockMutation = zProtectedMutation({
+	args: {
+		documentId: zid('documents'),
+		blockId: z.string(),
+		path: z.string(),
+		op: mutationOpSchema.default('set'),
+		value: signalValueSchema.optional(),
+		source: sourceSchema.default('owner'),
+		reason: z.string(),
+		how: z.string().optional(),
+		metadata: z.any().optional(),
+	},
+	handler: async (ctx, args) => {
+		const document = await getOwnedEnvelopeOrThrow(ctx, args.documentId, ctx.user._id);
+		const state = await getLiveStateOrThrow(ctx, document._id);
+		const blocks = getEnvelopeBlocks(document);
+		const block = blocks.find((candidate) => candidate.id === args.blockId);
+		if (!block) throw new Error('Block not found on sealed envelope');
+
+		const policy = deriveLiveBlockPolicy(block);
+		if (policy.mode === 'sealed') {
+			throw new Error('Block is sealed against post-sign mutation');
+		}
+		if (!policy.allowedPaths.includes(args.path)) {
+			throw new Error(`Path ${args.path} is not allowed for this live block`);
+		}
+
+		const variables = {
+			...(state.variables as Record<string, SignalValue>),
+		};
+		if (!evaluateLiveCondition(policy.condition, variables)) {
+			throw new Error('Live block condition is not satisfied');
+		}
+
+		const previousValue =
+			variables[getScalarVariableKey(args.blockId, args.path)] ?? getBlockValue(block, args.path);
+		const nextValue = applyScalarMutation(previousValue, args.op, args.value);
+		const variableKey = getScalarVariableKey(args.blockId, args.path);
+		variables[variableKey] = nextValue ?? null;
+
+		const now = Date.now();
+		const payload = {
+			blockId: args.blockId,
+			blockType: block.blockType,
+			path: args.path,
+			op: args.op,
+			value: nextValue ?? null,
+			previousValue: previousValue ?? null,
+			reason: args.reason,
+			how: args.how ?? null,
+			baseSealHash: state.baseSealHash,
+			sealedBlockHash: await hashContent(stableStringify(block)),
+			parentAnchorHash: null,
+			metadata: args.metadata ?? null,
+		};
+
+		const eventHash = await appendLiveEvent(ctx, {
+			documentId: document._id,
+			liveStateId: state._id,
+			eventType: 'authorized_mutation',
+			source: args.source,
+			payload,
+			createdAt: now,
+			previousHash: state.lastEventHash,
+		});
+
+		const stateHash = await computeStateHash({
+			baseSealHash: state.baseSealHash,
+			variables,
+			requirements: state.requirements as Requirement[],
+			pendingActions: state.pendingActions as QueuedAction[],
+			status: state.status,
+		});
+
+		await ctx.db.patch(state._id, {
+			variables,
+			lastEventHash: eventHash,
+			stateHash,
+			updatedAt: now,
+		});
+
+		await ctx.scheduler.runAfter(0, internal.auditLogs.mutations.log, {
+			workosId: ctx.user._id,
+			actorType: 'user',
+			documentId: document._id,
+			resourceType: 'document',
+			resourceId: String(document._id),
+			action: 'live_contract.authorized_block_mutation',
+			level: 'security',
+			metadata: {
+				blockId: args.blockId,
+				path: args.path,
+				op: args.op,
+				reason: args.reason,
+				how: args.how ?? null,
+				eventHash,
+				stateHash,
+			},
+		});
+
+		return {
+			documentId: document._id,
+			blockId: args.blockId,
+			path: args.path,
+			value: nextValue ?? null,
+			eventHash,
+			stateHash,
+		};
 	},
 });
 
