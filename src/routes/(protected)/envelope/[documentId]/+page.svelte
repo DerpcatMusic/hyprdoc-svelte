@@ -94,7 +94,8 @@
     blockType: string;
     required: boolean;
     slotName: string | null;
-    currentValue: string | null;
+    currentValue: string | number | boolean | null;
+    valueSource: "runtime" | "signer" | "none";
     lineage: {
       blockHash: string | null;
       lineageHash: string | null;
@@ -576,6 +577,16 @@
       .map(([key, value]) => `${key}: ${String(value)}`);
 
     return entries.length > 0 ? entries.join(" • ") : null;
+  }
+
+  function formatBlockValue(value: string | number | boolean | null) {
+    if (typeof value === "string") {
+      return value.trim().length > 0 ? value : null;
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+    return null;
   }
 
   function recipientInitials(name?: string | null) {
@@ -1217,12 +1228,14 @@
                     <div class="mt-1 break-words font-medium">
                       {selectedSmartBlock.blockType === "signature"
                         ? `${selectedSmartBlock.signing.signatureCount} signature${selectedSmartBlock.signing.signatureCount === 1 ? "" : "s"} recorded`
-                        : selectedSmartBlock.currentValue?.trim() || "No current field value"}
+                        : formatBlockValue(selectedSmartBlock.currentValue) || "No current field value"}
                     </div>
                     <div class="mt-1 text-xs text-muted-foreground">
-                      {selectedSmartBlock.signing.isSatisfied
-                        ? "Required state is currently satisfied."
-                        : "This block is still waiting on a required value."}
+                      {selectedSmartBlock.valueSource === "runtime"
+                        ? "This value is currently sourced from governed runtime state."
+                        : selectedSmartBlock.signing.isSatisfied
+                          ? "Required state is currently satisfied."
+                          : "This block is still waiting on a required value."}
                     </div>
                   </div>
 

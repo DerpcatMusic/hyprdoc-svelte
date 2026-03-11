@@ -43,6 +43,17 @@ function asRecord(value: unknown) {
     : null;
 }
 
+function asScalar(
+  value: unknown
+): string | number | boolean | null | undefined {
+  return typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    value === null
+    ? value
+    : undefined;
+}
+
 function summarizeUser(userId: Id<"users"> | undefined, usersById: UserMap) {
   if (!userId) {
     return null;
@@ -170,6 +181,7 @@ function summarizeCurrentBlock(input: {
   lineageEvent: Doc<"blockLineageEvents"> | null;
   signatures: SignatureDoc[];
   fieldValue: string | null;
+  runtimeValue: string | number | boolean | null;
   liveEvent: Doc<"liveContractEvents"> | null;
   liveMatchType: string | null;
   liveStateUpdatedAt: number | null;
@@ -181,6 +193,14 @@ function summarizeCurrentBlock(input: {
       : null;
   const hasTextValue =
     typeof input.fieldValue === "string" && input.fieldValue.trim().length > 0;
+  const hasRuntimeValue =
+    input.runtimeValue !== null &&
+    input.runtimeValue !== undefined &&
+    (typeof input.runtimeValue !== "string" || input.runtimeValue.trim().length > 0);
+  const effectiveValue =
+    input.block.blockType === "live-value"
+      ? input.runtimeValue
+      : input.fieldValue;
   const lastActivityAt =
     input.liveEvent?.createdAt ??
     lastSignedAt ??
@@ -198,7 +218,12 @@ function summarizeCurrentBlock(input: {
     "sealed";
   if (input.liveEvent) {
     state = "live";
-  } else if (input.block.required && !lastSignedAt && !hasTextValue) {
+  } else if (
+    input.block.required &&
+    !lastSignedAt &&
+    !hasTextValue &&
+    !hasRuntimeValue
+  ) {
     state = stale ? "warning" : "queued";
   } else if (stale) {
     state = "warning";
@@ -207,7 +232,11 @@ function summarizeCurrentBlock(input: {
   const evidence =
     input.block.blockType === "signature"
       ? `${input.signatures.length} signature${input.signatures.length === 1 ? "" : "s"}`
-      : hasTextValue
+      : input.block.blockType === "live-value"
+        ? hasRuntimeValue
+          ? "runtime value present"
+          : "awaiting runtime"
+        : hasTextValue
         ? "value captured"
         : input.block.required
           ? "awaiting value"
@@ -241,6 +270,8 @@ function summarizeCurrentBlock(input: {
       isSatisfied:
         input.block.blockType === "signature"
           ? input.signatures.length > 0
+          : input.block.blockType === "live-value"
+            ? hasRuntimeValue
           : input.block.blockType === "text-input"
             ? hasTextValue
             : !input.block.required,
@@ -261,7 +292,13 @@ function summarizeCurrentBlock(input: {
       staleAfterMs: BLOCK_STALE_AFTER_MS,
       pulse,
     },
-    currentValue: input.fieldValue,
+    currentValue: effectiveValue ?? null,
+    valueSource:
+      input.block.blockType === "live-value"
+        ? "runtime"
+        : hasTextValue
+          ? "signer"
+          : "none",
     ui: {
       id: input.block.id,
       label: input.block.label,
@@ -740,6 +777,10 @@ export const getDashboard = zProtectedQuery({
     }
 
     const fieldValueByBlockId = new Map<string, string>();
+    const runtimeValueByBlockId = new Map<
+      string,
+      string | number | boolean | null
+    >();
     for (const assignment of assignments) {
       const fieldValues = asRecord(assignment.fieldValues);
       if (!fieldValues) {
@@ -748,6 +789,25 @@ export const getDashboard = zProtectedQuery({
       for (const [blockId, rawValue] of Object.entries(fieldValues)) {
         if (typeof rawValue === "string" && rawValue.trim().length > 0) {
           fieldValueByBlockId.set(blockId, rawValue);
+        }
+      }
+    }
+
+    const liveVariables = asRecord(liveState?.variables);
+    if (liveVariables) {
+      for (const block of currentBlocks) {
+        const runtimeKey = `block:${block.id}:data.value`;
+        if (runtimeKey in liveVariables) {
+          runtimeValueByBlockId.set(
+            block.id,
+            asScalar(liveVariables[runtimeKey]) ?? null
+          );
+          continue;
+        }
+
+        const rawBlockValue = asScalar(block.data.value);
+        if (block.blockType === "live-value" && rawBlockValue !== undefined) {
+          runtimeValueByBlockId.set(block.id, rawBlockValue ?? null);
         }
       }
     }
@@ -762,6 +822,7 @@ export const getDashboard = zProtectedQuery({
         lineageEvent: latestLineageByBlockId.get(block.id) ?? null,
         signatures: signaturesByBlockId.get(block.id) ?? [],
         fieldValue: fieldValueByBlockId.get(block.id) ?? null,
+        runtimeValue: runtimeValueByBlockId.get(block.id) ?? null,
         liveEvent: latestLiveByBlockId.get(block.id)?.event ?? null,
         liveMatchType: latestLiveByBlockId.get(block.id)?.matchedBy ?? null,
         liveStateUpdatedAt: liveState?.updatedAt ?? null,
