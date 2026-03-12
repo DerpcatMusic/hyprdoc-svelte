@@ -2,6 +2,12 @@
 
 HyprDoc is a live-contract platform moving toward an endgame stack of SvelteKit + Phoenix + Rust.
 
+## License
+
+This repository is source-available under `PolyForm Noncommercial 1.0.0`.
+You may not use copied source from this repository for commercial or monetized use.
+See [LICENSE](./LICENSE).
+
 ## Workspace Layout
 - `.`: primary SvelteKit app and current transitional backend.
 - `apps/runtime`: Phoenix runtime scaffold for live-contract orchestration.
