@@ -10,5 +10,6 @@ defmodule HyprdocRuntimeWeb.Router do
 
     get "/health", HealthController, :show
     get "/live-contracts/:document_id", LiveContractsController, :show
+    post "/live-contracts/:document_id/mutations", LiveContractsController, :mutate
   end
 end

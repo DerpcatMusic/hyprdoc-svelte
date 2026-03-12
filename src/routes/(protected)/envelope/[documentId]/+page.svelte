@@ -7,15 +7,14 @@
   import type * as envelopeQueries from "@/convex/envelopes/queries";
   import type {
     LiveContractProjection,
+    RuntimeProjectionEnvelope,
     ProjectionVerificationResult,
   } from "@hyprdoc/domain-types";
   import { browser } from "$app/environment";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import {
-    verifyRuntimeProjection,
-    verifySealHash,
-  } from "../../../../../packages/contract-core/src/index.ts";
+  import { getRuntimeProjection } from "$lib/runtime/client";
+  import { verifyRuntimeProjection, verifySealHash } from "../../../../../packages/contract-core/src/index.ts";
   import EnvelopeLiveBlockStatusList from "$lib/components/envelope/EnvelopeLiveBlockStatusList.svelte";
   import type { EnvelopeBlockStatus } from "$lib/components/envelope/types";
   import { Badge } from "$lib/components/ui/badge";
@@ -39,9 +38,6 @@
   )["envelopes/queries"];
   const getEnvelopeDashboard =
     envelopeDashboardApi.getDashboard as unknown as FunctionReference<"query">;
-  const getRuntimeProjection =
-    envelopeDashboardApi.getRuntimeProjection as unknown as FunctionReference<"query">;
-
   const dashboardQuery = useQuery(getEnvelopeDashboard, () => ({
     documentId,
     auditLogLimit: 8,
@@ -49,23 +45,21 @@
     lineageEventLimit: 8,
     versionLimit: 6,
   }));
-  const runtimeProjectionQuery = useQuery(getRuntimeProjection, () => ({
-    documentId,
-  }));
 
   const documentData = $derived(documentQuery.data);
   const dashboard = $derived(dashboardQuery.data);
+  const runtimeRefreshIntervalMs = 15_000;
+  let runtimeEnvelope = $state<RuntimeProjectionEnvelope | null>(null);
   const runtimeProjection = $derived(
-    (runtimeProjectionQuery.data as LiveContractProjection | null | undefined) ??
+    (runtimeEnvelope?.projection as LiveContractProjection | null | undefined) ??
       null
   );
   const isLoading = $derived(
     documentQuery.isLoading ||
-      dashboardQuery.isLoading ||
-      runtimeProjectionQuery.isLoading
+      dashboardQuery.isLoading
   );
   const error = $derived(
-    documentQuery.error ?? dashboardQuery.error ?? runtimeProjectionQuery.error
+    documentQuery.error ?? dashboardQuery.error
   );
 
   const envelope = $derived(
@@ -172,6 +166,7 @@
     result: null,
     error: null,
   });
+  let runtimeProjectionError = $state<string | null>(null);
   let sealVerification = $state<SealVerificationState>({
     status: "idle",
     computedHash: null,
@@ -290,6 +285,73 @@
 
     return () => {
       cancelled = true;
+    };
+  });
+
+  $effect(() => {
+    if (!browser || !documentId) {
+      runtimeEnvelope = null;
+      runtimeProjectionError = null;
+      return;
+    }
+
+    let cancelled = false;
+    let refreshTimer: ReturnType<typeof window.setTimeout> | null = null;
+
+    const scheduleRefresh = () => {
+      if (cancelled) {
+        return;
+      }
+
+      refreshTimer = window.setTimeout(() => {
+        void fetchRuntimeProjection();
+      }, runtimeRefreshIntervalMs);
+    };
+
+    const fetchRuntimeProjection = async () => {
+      try {
+        const response = await getRuntimeProjection(documentId);
+        if (cancelled) {
+          return;
+        }
+
+        runtimeEnvelope = response;
+        runtimeProjectionError = null;
+      } catch (error: unknown) {
+        if (cancelled) {
+          return;
+        }
+
+        runtimeEnvelope = null;
+        runtimeProjectionError =
+          error instanceof Error ? error.message : "Runtime projection unavailable";
+      } finally {
+        scheduleRefresh();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible" || cancelled) {
+        return;
+      }
+
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+        refreshTimer = null;
+      }
+
+      void fetchRuntimeProjection();
+    };
+
+    void fetchRuntimeProjection();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+      }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   });
 
@@ -421,8 +483,28 @@
     }
   });
   const runtimeVerificationIssue = $derived(
-    runtimeVerification.result?.issues[0] ?? runtimeVerification.error ?? null
+    runtimeVerification.result?.issues[0] ??
+      runtimeVerification.error ??
+      runtimeProjectionError ??
+      null
   );
+  const runtimeProviderLabel = $derived.by(() => {
+    switch (runtimeEnvelope?.provider) {
+      case "phoenix":
+        return "Phoenix runtime";
+      case "convex":
+        return "Convex fallback";
+      default:
+        return "Runtime pending";
+    }
+  });
+  const runtimeFetchedAtLabel = $derived.by(() => {
+    if (runtimeEnvelope?.fetchedAt) {
+      return formatRelative(runtimeEnvelope.fetchedAt);
+    }
+
+    return runtimeProjectionError ? "Unavailable" : "Pending";
+  });
 
   const smartBlockRows = $derived.by(() =>
     currentSmartBlocks.map((block: CurrentSmartBlock) => {
@@ -1026,6 +1108,14 @@
                   >
                     {runtimeVerificationLabel}
                   </span>
+                </div>
+                <div class="flex items-start justify-between gap-4">
+                  <span class="text-muted-foreground">Runtime source</span>
+                  <span class="text-right font-medium">{runtimeProviderLabel}</span>
+                </div>
+                <div class="flex items-start justify-between gap-4">
+                  <span class="text-muted-foreground">Runtime fetched</span>
+                  <span class="text-right font-medium">{runtimeFetchedAtLabel}</span>
                 </div>
                 {#if sealVerification.computedHash}
                   <div class="flex items-start justify-between gap-4">

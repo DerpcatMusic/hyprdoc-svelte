@@ -121,6 +121,9 @@ export type {
   ProofVerificationRequest,
   ProofVerificationResult,
   RuntimeActorSummary,
+  RuntimeMutationEnvelope,
+  RuntimeMutationRequest,
+  RuntimeProjectionEnvelope,
   RuntimeChainHead,
   RuntimeLineageEvent,
   RuntimeLiveEvent,
@@ -134,3 +137,12 @@ export {
   normalizeSmartBlockSnapshot,
   type CanonicalSmartBlock,
 } from "./smart-blocks";
+
+export {
+  parseRuntimeMutationEnvelope,
+  parseRuntimeMutationRequest,
+  parseRuntimeProjectionEnvelope,
+  runtimeMutationEnvelopeSchema,
+  runtimeMutationRequestSchema,
+  runtimeProjectionEnvelopeSchema,
+} from "./runtime";
