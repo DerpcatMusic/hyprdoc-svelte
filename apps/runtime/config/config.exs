@@ -2,7 +2,8 @@ import Config
 
 config :hyprdoc_runtime,
   ecto_repos: [],
-  live_contracts_source_adapter: HyprdocRuntime.LiveContracts.HttpSource,
+  live_contracts_source_adapter: HyprdocRuntime.LiveContracts.CompositeSource,
+  proof_client: HyprdocRuntime.ProofClients.LocalHash,
   runtime_source_base_url: nil,
   runtime_source_secret: nil
 

@@ -49,6 +49,12 @@ forwarded mutation envelopes. That lets the runtime keep serving the last known
 projection if the transitional source blips, but it is still not a substitute
 for native persistence.
 
+The current default source adapter is now composite:
+
+- read from Phoenix cache first
+- fall back to the HTTP source bridge on a cache miss
+- write locally against the cached projection once a document has been bootstrapped
+
 ## Intended Commands
 
 ```bash
