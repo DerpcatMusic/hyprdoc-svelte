@@ -1,6 +1,7 @@
 defmodule HyprdocRuntime.LiveContracts.Service do
   @moduledoc false
 
+  alias HyprdocRuntime.LiveContracts.ConditionEvaluator
   alias HyprdocRuntime.LiveContracts.ContractValidity
   alias HyprdocRuntime.LiveContracts.MutationEvent
   alias HyprdocRuntime.LiveContracts.Payload
@@ -14,6 +15,7 @@ defmodule HyprdocRuntime.LiveContracts.Service do
     with {:ok, mutation} <- Payload.normalize_mutation_request(params),
          {:ok, projection} <- load_projection(document_id, opts),
          {:ok, policy} <- Payload.policy_from_projection(projection, mutation.block_id),
+         :ok <- validate_condition(policy, projection),
          {:ok, event} <- build_mutation_event(document_id, mutation, projection),
          :valid <- ContractValidity.validate_event(event, policy),
          {:ok, envelope} <-
@@ -86,5 +88,15 @@ defmodule HyprdocRuntime.LiveContracts.Service do
 
   defp source_opts(opts) do
     Keyword.take(opts, [:authorization, :base_url, :shared_secret])
+  end
+
+  defp validate_condition(%{condition: nil}, _projection), do: :ok
+
+  defp validate_condition(%{condition: condition}, projection) do
+    if ConditionEvaluator.evaluate(condition, projection) do
+      :ok
+    else
+      {:error, {:policy_violation, :condition_not_met}}
+    end
   end
 end
