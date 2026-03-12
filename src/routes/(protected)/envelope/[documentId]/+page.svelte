@@ -13,12 +13,13 @@
   import { browser } from "$app/environment";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { getRuntimeProjection } from "$lib/runtime/client";
+  import { getRuntimeProjection, postRuntimeMutation } from "$lib/runtime/client";
   import { verifyRuntimeProjection, verifySealHash } from "../../../../../packages/contract-core/src/index.ts";
   import EnvelopeLiveBlockStatusList from "$lib/components/envelope/EnvelopeLiveBlockStatusList.svelte";
   import type { EnvelopeBlockStatus } from "$lib/components/envelope/types";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
   import { Progress } from "$lib/components/ui/progress";
   import { Separator } from "$lib/components/ui/separator";
   import { Spinner } from "$lib/components/ui/spinner";
@@ -161,6 +162,17 @@
   let acknowledgedBlockHeads = $state<Record<string, string>>({});
   let ackStorageReady = $state(false);
   let selectedBlockId = $state<string | null>(null);
+  let runtimeProjectionRefreshNonce = $state(0);
+  let runtimeMutationTargetBlockId = $state<string | null>(null);
+  let runtimeMutationValue = $state("");
+  let runtimeMutationReason = $state("Manual runtime update");
+  let runtimeMutationState = $state<{
+    status: "idle" | "submitting" | "success" | "error";
+    message: string | null;
+  }>({
+    status: "idle",
+    message: null,
+  });
   let runtimeVerification = $state<RuntimeVerificationState>({
     status: "idle",
     result: null,
@@ -294,6 +306,8 @@
       runtimeProjectionError = null;
       return;
     }
+
+    runtimeProjectionRefreshNonce;
 
     let cancelled = false;
     let refreshTimer: ReturnType<typeof window.setTimeout> | null = null;
@@ -590,6 +604,25 @@
       smartBlockRows[0]
     );
   });
+  const selectedRuntimePolicy = $derived.by(() => {
+    if (!selectedSmartBlock || !runtimeProjection) {
+      return null;
+    }
+
+    return (
+      runtimeProjection.policies.find(
+        (policy) => policy.blockId === selectedSmartBlock.id
+      ) ?? null
+    );
+  });
+  const canManuallyMutateSelectedBlock = $derived(
+    Boolean(
+      selectedSmartBlock &&
+        selectedSmartBlock.blockType === "live-value" &&
+        selectedRuntimePolicy &&
+        selectedRuntimePolicy.mode !== "sealed"
+    )
+  );
 
   $effect(() => {
     if (smartBlockRows.length === 0) {
@@ -611,6 +644,30 @@
         ?.id ??
       smartBlockRows[0]?.id ??
       null;
+  });
+
+  $effect(() => {
+    if (!selectedSmartBlock) {
+      runtimeMutationTargetBlockId = null;
+      runtimeMutationValue = "";
+      runtimeMutationState = {
+        status: "idle",
+        message: null,
+      };
+      return;
+    }
+
+    if (runtimeMutationTargetBlockId === selectedSmartBlock.id) {
+      return;
+    }
+
+    runtimeMutationTargetBlockId = selectedSmartBlock.id;
+    const nextValue = formatBlockValue(selectedSmartBlock.currentValue) ?? "";
+    runtimeMutationValue = nextValue;
+    runtimeMutationState = {
+      status: "idle",
+      message: null,
+    };
   });
 
   const statusConfig = {
@@ -701,6 +758,73 @@
       return String(value);
     }
     return null;
+  }
+
+  function coerceRuntimeMutationValue(
+    rawValue: string,
+    currentValue: string | number | boolean | null
+  ) {
+    if (typeof currentValue === "number") {
+      const parsedNumber = Number(rawValue);
+      if (Number.isNaN(parsedNumber)) {
+        throw new Error("Runtime value must be a valid number");
+      }
+      return parsedNumber;
+    }
+
+    if (typeof currentValue === "boolean") {
+      if (rawValue === "true") {
+        return true;
+      }
+      if (rawValue === "false") {
+        return false;
+      }
+      throw new Error('Runtime value must be "true" or "false"');
+    }
+
+    return rawValue;
+  }
+
+  async function applySelectedRuntimeMutation() {
+    if (!selectedSmartBlock || !canManuallyMutateSelectedBlock) {
+      return;
+    }
+
+    runtimeMutationState = {
+      status: "submitting",
+      message: null,
+    };
+
+    try {
+      const nextValue = coerceRuntimeMutationValue(
+        runtimeMutationValue,
+        selectedSmartBlock.currentValue
+      );
+
+      await postRuntimeMutation(documentId, {
+        blockId: selectedSmartBlock.id,
+        path: "data.value",
+        op: "replace",
+        source: "owner",
+        value: nextValue,
+        reason: runtimeMutationReason.trim() || "Manual runtime update",
+      });
+
+      runtimeMutationValue = formatBlockValue(nextValue) ?? "";
+      runtimeProjectionRefreshNonce += 1;
+      runtimeMutationState = {
+        status: "success",
+        message: "Runtime update appended to the live contract chain.",
+      };
+    } catch (error: unknown) {
+      runtimeMutationState = {
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Runtime mutation failed",
+      };
+    }
   }
 
   function recipientInitials(name?: string | null) {
@@ -1431,6 +1555,90 @@
                     </div>
                   </div>
                 </div>
+
+                {#if canManuallyMutateSelectedBlock}
+                  <div
+                    class="mt-4 rounded-2xl border border-border/60 bg-background/70 p-4"
+                  >
+                    <div class="flex flex-col gap-1">
+                      <div
+                        class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                      >
+                        Manual runtime mutation
+                      </div>
+                      <div class="text-sm text-muted-foreground">
+                        Appends an authorized owner mutation for this live block through the runtime gateway.
+                      </div>
+                    </div>
+
+                    <div class="mt-4 grid gap-3">
+                      <div class="grid gap-1.5">
+                        <label
+                          class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                          for="runtime-mutation-value"
+                        >
+                          Next value
+                        </label>
+                        <Input
+                          id="runtime-mutation-value"
+                          value={runtimeMutationValue}
+                          oninput={(event: Event & { currentTarget: HTMLInputElement }) =>
+                            runtimeMutationValue = event.currentTarget.value}
+                          placeholder="Enter runtime value"
+                        />
+                      </div>
+
+                      <div class="grid gap-1.5">
+                        <label
+                          class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                          for="runtime-mutation-reason"
+                        >
+                          Reason
+                        </label>
+                        <Input
+                          id="runtime-mutation-reason"
+                          value={runtimeMutationReason}
+                          oninput={(event: Event & { currentTarget: HTMLInputElement }) =>
+                            runtimeMutationReason = event.currentTarget.value}
+                          placeholder="Explain why this runtime value changed"
+                        />
+                      </div>
+
+                      <div class="flex flex-wrap items-center gap-3">
+                        <Button
+                          class="rounded-xl"
+                          disabled={runtimeMutationState.status === "submitting"}
+                          onclick={() => void applySelectedRuntimeMutation()}
+                        >
+                          {runtimeMutationState.status === "submitting"
+                            ? "Applying update"
+                            : "Append runtime update"}
+                        </Button>
+
+                        {#if selectedRuntimePolicy}
+                          <span class="text-xs text-muted-foreground">
+                            Mode: {selectedRuntimePolicy.mode} • Path: data.value
+                          </span>
+                        {/if}
+                      </div>
+
+                      {#if runtimeMutationState.message}
+                        <div
+                          class={cn(
+                            "rounded-xl border px-3 py-2 text-xs",
+                            runtimeMutationState.status === "success"
+                              ? "border-status-success/20 bg-status-success-soft text-status-success"
+                              : runtimeMutationState.status === "error"
+                                ? "border-status-danger/20 bg-status-danger-soft text-status-danger"
+                                : "border-border/60 bg-card text-muted-foreground"
+                          )}
+                        >
+                          {runtimeMutationState.message}
+                        </div>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
               </div>
             {/if}
 
