@@ -8,6 +8,10 @@ if config_env() == :prod do
       raise "environment variable SECRET_KEY_BASE is missing"
   runtime_source_base_url = System.get_env("RUNTIME_SOURCE_BASE_URL")
   runtime_source_secret = System.get_env("RUNTIME_SOURCE_SECRET")
+  signing_source_base_url =
+    System.get_env("SIGNING_SOURCE_BASE_URL") || runtime_source_base_url
+  signing_source_secret =
+    System.get_env("SIGNING_SOURCE_SECRET") || runtime_source_secret
 
   config :hyprdoc_runtime, HyprdocRuntimeWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
@@ -17,5 +21,7 @@ if config_env() == :prod do
 
   config :hyprdoc_runtime,
     runtime_source_base_url: runtime_source_base_url,
-    runtime_source_secret: runtime_source_secret
+    runtime_source_secret: runtime_source_secret,
+    signing_source_base_url: signing_source_base_url,
+    signing_source_secret: signing_source_secret
 end

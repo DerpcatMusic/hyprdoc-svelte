@@ -35,14 +35,31 @@ Phoenix now expects an upstream runtime source while the cutover is still in pro
   Set this to the SvelteKit app base URL, not the Phoenix runtime URL.
 - `RUNTIME_SOURCE_SECRET`
   Shared secret Phoenix sends to the SvelteKit runtime source routes.
+- `SIGNING_SOURCE_BASE_URL`
+  Optional signing bridge override. Defaults to `RUNTIME_SOURCE_BASE_URL`.
+- `SIGNING_SOURCE_SECRET`
+  Optional signing bridge override. Defaults to `RUNTIME_SOURCE_SECRET`.
 
 The SvelteKit source routes live under:
 
 - `/api/runtime/source/contracts/:document_id`
 - `/api/runtime/source/contracts/:document_id/mutations`
+- `/api/signing/source/sessions`
+- `/api/signing/source/sessions/:session_id`
+- `/api/signing/source/portal/:access_token`
 
 Those routes bypass the normal runtime gateway and hit Convex directly so Phoenix
 can sit in front without creating a request loop.
+
+Phoenix now also fronts the signing lifecycle directly:
+
+- `/api/signing/sessions`
+- `/api/signing/sessions/:session_id/assignments`
+- `/api/signing/sessions/:session_id/start`
+- `/api/signing/portal/:access_token`
+- `/api/signing/portal/:access_token/challenges`
+- `/api/signing/portal/:access_token/signatures`
+- `/api/signing/portal/:access_token/complete`
 
 Phoenix also keeps a local in-memory cache of fetched projection envelopes and
 forwarded mutation envelopes. That lets the runtime keep serving the last known

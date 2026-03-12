@@ -3,9 +3,12 @@ import Config
 config :hyprdoc_runtime,
   ecto_repos: [],
   live_contracts_source_adapter: HyprdocRuntime.LiveContracts.CompositeSource,
+  signing_source_adapter: HyprdocRuntime.Signing.HttpSource,
   proof_client: HyprdocRuntime.ProofClients.LocalHash,
   runtime_source_base_url: nil,
-  runtime_source_secret: nil
+  runtime_source_secret: nil,
+  signing_source_base_url: nil,
+  signing_source_secret: nil
 
 config :hyprdoc_runtime, HyprdocRuntimeWeb.Endpoint,
   url: [host: "localhost"],

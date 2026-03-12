@@ -15,6 +15,11 @@
   import { api } from "@/convex/_generated/api";
   import type { Id } from "@/convex/_generated/dataModel";
   import { partyStore } from "$lib/editor/core/party-store.svelte";
+  import {
+    assignSigner,
+    createSigningSession,
+    startSigningSession,
+  } from "$lib/signing/client";
   import { toast } from "svelte-sonner";
 
   interface Props {
@@ -85,9 +90,6 @@
   });
 
   // Convex mutations
-  const createSigningSession = useConvexMutation(api.signing.createSigningSession);
-  const assignSigner = useConvexMutation(api.signing.assignSigner);
-  const startSigningSession = useConvexMutation(api.signing.startSigningSession);
   const createEnvelopeFromTemplate = useConvexMutation(
     api.documents.mutations.create.createEnvelopeFromTemplate
   );
@@ -147,7 +149,7 @@
       // 1. Create signing session
       const expiresAt = Date.now() + (settings.expiresInDays * 24 * 60 * 60 * 1000);
 
-      const { sessionId, reused } = await createSigningSession.mutate({
+      const { sessionId, reused } = await createSigningSession({
         documentId: targetDocumentId,
         signingOrder: settings.signingOrder,
         expiresAt,
@@ -174,8 +176,7 @@
               ? 'email'
               : 'none';
 
-        await assignSigner.mutate({
-          sessionId,
+        await assignSigner(sessionId, {
           slotId: undefined,
           partyId: party.id,
           email: signer.email,
@@ -190,7 +191,7 @@
       }
 
       // 3. Start the signing session (send invitations)
-      const { alreadyStarted } = await startSigningSession.mutate({ sessionId });
+      const { alreadyStarted } = await startSigningSession(sessionId);
 
       if (alreadyStarted) {
         toast.success('Signing session was already active. Reusing existing session.');

@@ -6,14 +6,15 @@
   import { Mail, Phone, RefreshCw, ShieldCheck, AlertCircle } from "lucide-svelte";
   import { Button } from "$lib/components/ui/button";
   import { cn } from "$lib/utils";
-  import { useConvexMutation } from "$lib/convex/hooks";
-  import { api } from "@/convex/_generated/api";
-  import type { Id } from "@/convex/_generated/dataModel";
+  import {
+    sendSignerAuthChallenge,
+    verifySignerAuthChallenge,
+  } from "$lib/signing/client";
   import { toast } from "svelte-sonner";
 
   interface Props {
     accessToken: string;
-    challengeId: Id<"authChallenges"> | null;
+    challengeId: string | null;
     type: 'email' | 'phone';
     maskedDestination: string;
     onVerified?: () => void;
@@ -28,7 +29,7 @@
     onVerified,
     class: className,
   }: Props = $props();
-  let currentChallengeId = $state<Id<"authChallenges"> | null>(null);
+  let currentChallengeId = $state<string | null>(null);
 
   $effect(() => {
     if (initialChallengeId && initialChallengeId !== currentChallengeId) {
@@ -52,10 +53,6 @@
   const otpCode = $derived(otpDigits.join(''));
   const isComplete = $derived(otpCode.length === 6 && otpDigits.every(d => /\d/.test(d)));
 
-  // Convex mutations
-  const verifyChallenge = useConvexMutation(api.signing.verifyAuthChallenge);
-  const sendChallenge = useConvexMutation(api.signing.sendAuthChallenge);
-
   $effect(() => {
     if (!currentChallengeId && !isBootstrapping && !didBootstrap) {
       didBootstrap = true;
@@ -66,11 +63,10 @@
   async function bootstrapChallenge(): Promise<void> {
     isBootstrapping = true;
     try {
-      const result = await sendChallenge.mutate({
-        accessToken,
+      const result = await sendSignerAuthChallenge(accessToken, {
         type,
       });
-      currentChallengeId = result.challengeId as Id<"authChallenges">;
+      currentChallengeId = result.challengeId;
     } catch (err) {
       console.error("Challenge bootstrap error:", err);
       error = "Unable to send verification code. Please retry.";
@@ -148,9 +144,7 @@
     error = null;
 
     try {
-      const result = await verifyChallenge.mutate({
-        accessToken,
-        challengeId: currentChallengeId,
+      const result = await verifySignerAuthChallenge(accessToken, currentChallengeId, {
         code: otpCode,
       });
 
@@ -178,11 +172,10 @@
     error = null;
 
     try {
-      const result = await sendChallenge.mutate({
-        accessToken,
+      const result = await sendSignerAuthChallenge(accessToken, {
         type,
       });
-      currentChallengeId = result.challengeId as Id<"authChallenges">;
+      currentChallengeId = result.challengeId;
       
       toast.success(`New code sent to ${maskedDestination}`);
       // Reset attempts

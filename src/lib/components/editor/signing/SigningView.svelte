@@ -7,14 +7,18 @@
   import { Button } from "$lib/components/ui/button";
   import { Separator } from "$lib/components/ui/separator";
   import { cn } from "$lib/utils";
-  import { useQuery } from "convex-svelte";
-  import { useConvexMutation } from "$lib/convex/hooks";
-  import { api } from "@/convex/_generated/api";
-  import type { Id } from "@/convex/_generated/dataModel";
   import DocumentViewer from "$lib/editor/ui/DocumentViewer.svelte";
   import type { ExtractedSmartBlock } from "$lib/blocks/runtime/extract-smart-blocks";
   import { extractSmartBlocksFromContent } from "$lib/blocks/runtime/extract-smart-blocks";
   import SignaturePad from "$lib/components/ui/signature/SignaturePad.svelte";
+  import {
+    completeSignerPortalSession,
+    getSignerPortal,
+    recordSignerPortalView,
+    recordSignerSignature,
+    saveSignerFieldValue,
+    sendSignerAuthChallenge,
+  } from "$lib/signing/client";
   import { HYPR_DEFAULT_PARTY_COLOR } from "$lib/styles/ui-palette";
   import OtpVerificationView from "./OtpVerificationView.svelte";
   import { toast } from "svelte-sonner";
@@ -31,7 +35,7 @@
 
   // Data from backend
   let signerData = $state<{
-    documentId: Id<"documents">;
+    documentId: string;
     documentTitle: string;
     documentContent: string;
     signerName: string;
@@ -51,7 +55,10 @@
   let signatureValue = $state<string | null>(null);
   let signedAsName = $state('');
   let inputValues = $state<Record<string, string>>({});
-  let activeChallengeId = $state<Id<"authChallenges"> | null>(null);
+  let activeChallengeId = $state<string | null>(null);
+  let isLoadingPortal = $state(true);
+  let loadedPortalToken = $state<string | null>(null);
+  let recordedViewToken = $state<string | null>(null);
   let isSubmitting = $state(false);
   let agreedToTerms = $state(false);
 
@@ -80,76 +87,78 @@
     signatureTargetBlocks[0]?.id ?? null
   );
 
-  // Convex queries and mutations
-  const signerView = useQuery(api.signing.getSignerView, () => ({ accessToken }));
-  const recordSignerView = useConvexMutation(api.signing.recordSignerView);
-  const saveFieldValue = useConvexMutation(api.signing.saveFieldValue);
-  const recordSignature = useConvexMutation(api.signing.recordSignature);
-  const completeSignerSession = useConvexMutation(api.signing.completeSignerSession);
-  const sendAuthChallenge = useConvexMutation(api.signing.sendAuthChallenge);
-
-  // Process query result
-  $effect(() => {
-    const data = signerView.data;
-
-    if (signerView.isLoading) {
+  async function refreshSignerPortal(options?: { preserveStep?: boolean }): Promise<void> {
+    if (!options?.preserveStep) {
       currentStep = 'loading';
-      return;
     }
 
-    if (signerView.error || !data) {
+    isLoadingPortal = true;
+    errorMessage = null;
+
+    try {
+      const data = await getSignerPortal(accessToken);
+
+      if ('error' in data && data.error === 'expired') {
+        signerData = null;
+        currentStep = 'error';
+        errorMessage = 'This signing link has expired.';
+        return;
+      }
+
+      if (data.status === 'signed') {
+        currentStep = 'complete';
+        return;
+      }
+
+      if (data.status === 'declined') {
+        currentStep = 'declined';
+        return;
+      }
+
+      const settings = data.settings ?? {
+        requireEmailVerification: true,
+        requirePhoneVerification: false,
+        requireBoth: false,
+      };
+
+      signerData = {
+        documentId: data.documentId,
+        documentTitle: data.documentTitle ?? 'Document',
+        documentContent: data.documentContent ?? '',
+        signerName: data.signerName ?? 'Signer',
+        partyName: data.partyName ?? 'Signer',
+        partyColor: data.partyColor ?? HYPR_DEFAULT_PARTY_COLOR,
+        requiresEmailVerification: settings.requireEmailVerification ?? true,
+        requiresPhoneVerification: settings.requirePhoneVerification ?? false,
+        emailVerified: data.emailVerified ?? false,
+        phoneVerified: data.phoneVerified ?? false,
+        maskedEmail: data.maskedEmail ?? '',
+        maskedPhone: data.maskedPhone,
+        assignedBlocks: (data.assignedBlocks ?? []) as ExtractedSmartBlock[],
+        fieldValues: (data.fieldValues ?? {}) as Record<string, string>,
+      };
+
+      signedAsName = data.signerName ?? '';
+
+      if (!options?.preserveStep || currentStep === 'loading' || currentStep === 'view') {
+        currentStep = 'view';
+      }
+    } catch (error) {
+      console.error('Failed to load signer portal:', error);
+      signerData = null;
       currentStep = 'error';
       errorMessage = 'Unable to load signing session. The link may be invalid or expired.';
-      return;
+    } finally {
+      isLoadingPortal = false;
     }
+  }
 
-    // Check for already completed
-    if (data.status === 'signed') {
-      currentStep = 'complete';
-      return;
-    }
+  $effect(() => {
+    if (!accessToken || loadedPortalToken === accessToken) return;
 
-    if (data.status === 'declined') {
-      currentStep = 'declined';
-      return;
-    }
-
-    // Store signer data
-    const settings = data.settings ?? {
-      requireEmailVerification: true,
-      requirePhoneVerification: false,
-      requireBoth: false,
-    };
-
-    signerData = {
-      documentId: data.documentId as Id<"documents">,
-      documentTitle: data.documentTitle ?? 'Document',
-      documentContent: data.documentContent ?? '',
-      signerName: data.signerName ?? 'Signer',
-      partyName: data.partyName ?? 'Signer',
-      partyColor: data.partyColor ?? HYPR_DEFAULT_PARTY_COLOR,
-      requiresEmailVerification: settings.requireEmailVerification ?? true,
-      requiresPhoneVerification: settings.requirePhoneVerification ?? false,
-      emailVerified: data.emailVerified ?? false,
-      phoneVerified: data.phoneVerified ?? false,
-      maskedEmail: data.maskedEmail ?? '',
-      maskedPhone: data.maskedPhone,
-      assignedBlocks: (data.assignedBlocks ?? []) as ExtractedSmartBlock[],
-      fieldValues: (data.fieldValues ?? {}) as Record<string, string>,
-    };
-
-    signedAsName = data.signerName ?? '';
-
-    // Determine current step based on verification status
-    if (currentStep === 'loading' || currentStep === 'view') {
-      if ((settings.requireEmailVerification ?? true) && !data.emailVerified) {
-        currentStep = 'view'; // Start with document view
-      } else if ((settings.requirePhoneVerification ?? false) && !data.phoneVerified) {
-        currentStep = 'view';
-      } else {
-        currentStep = 'view'; // All verified, can proceed
-      }
-    }
+    loadedPortalToken = accessToken;
+    recordedViewToken = null;
+    void refreshSignerPortal();
   });
 
   $effect(() => {
@@ -158,9 +167,9 @@
 
   // Record view when signer first sees document
   $effect(() => {
-    if (currentStep === 'view' && signerData) {
-      recordSignerView.mutate({
-        accessToken,
+    if (currentStep === 'view' && signerData && recordedViewToken !== accessToken) {
+      recordedViewToken = accessToken;
+      recordSignerPortalView(accessToken, {
         metadata: {
           ipAddress: 'unknown',
           userAgent: navigator.userAgent,
@@ -170,51 +179,43 @@
   });
 
   // Step navigation
-  function proceedToVerification(): void {
+  async function proceedToVerification(): Promise<void> {
     if (!signerData) return;
 
     if (signerData.requiresEmailVerification && !signerData.emailVerified) {
-      // Send email challenge
-      sendAuthChallenge.mutate({
-        accessToken,
-        type: 'email',
-      }).then((result: { challengeId: Id<"authChallenges"> }) => {
+      try {
+        const result = await sendSignerAuthChallenge(accessToken, { type: 'email' });
         activeChallengeId = result.challengeId;
         currentStep = 'verify-email';
-      }).catch(() => {
+      } catch {
         toast.error('Failed to send verification code');
-      });
+      }
     } else if (signerData.requiresPhoneVerification && !signerData.phoneVerified) {
-      sendAuthChallenge.mutate({
-        accessToken,
-        type: 'phone',
-      }).then((result: { challengeId: Id<"authChallenges"> }) => {
+      try {
+        const result = await sendSignerAuthChallenge(accessToken, { type: 'phone' });
         activeChallengeId = result.challengeId;
         currentStep = 'verify-phone';
-      }).catch(() => {
+      } catch {
         toast.error('Failed to send verification code');
-      });
+      }
     } else {
       currentStep = 'sign';
     }
   }
 
-  function onEmailVerified(): void {
+  async function onEmailVerified(): Promise<void> {
     if (!signerData) return;
 
     signerData = { ...signerData, emailVerified: true };
 
     if (signerData.requiresPhoneVerification && !signerData.phoneVerified) {
-      // Need phone verification next
-      sendAuthChallenge.mutate({
-        accessToken,
-        type: 'phone',
-      }).then((result: { challengeId: Id<"authChallenges"> }) => {
+      try {
+        const result = await sendSignerAuthChallenge(accessToken, { type: 'phone' });
         activeChallengeId = result.challengeId;
         currentStep = 'verify-phone';
-      }).catch(() => {
+      } catch {
         toast.error('Failed to send phone verification code');
-      });
+      }
     } else {
       currentStep = 'sign';
     }
@@ -263,16 +264,14 @@
       for (const block of assignedInputBlocks) {
         const nextValue = inputValues[block.id] ?? "";
         if (!nextValue.trim() && !block.required) continue;
-        await saveFieldValue.mutate({
-          accessToken,
+        await saveSignerFieldValue(accessToken, {
           blockId: block.id,
           value: nextValue,
         });
       }
 
       for (const block of signatureTargetBlocks) {
-        await recordSignature.mutate({
-          accessToken,
+        await recordSignerSignature(accessToken, {
           blockId: block.id,
           signatureType: "draw",
           signatureData: signatureValue,
@@ -283,9 +282,7 @@
         });
       }
 
-      await completeSignerSession.mutate({
-        accessToken,
-      });
+      await completeSignerPortalSession(accessToken);
 
       currentStep = 'complete';
       toast.success('Document signed successfully!');

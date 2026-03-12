@@ -108,5 +108,4 @@ defmodule HyprdocRuntimeWeb.LiveContractsController do
   defp map_upstream_status(status) when status in [401, 403, 404], do: status
   defp map_upstream_status(status) when status >= 400 and status < 500, do: 422
   defp map_upstream_status(_status), do: 502
-  end
 end
