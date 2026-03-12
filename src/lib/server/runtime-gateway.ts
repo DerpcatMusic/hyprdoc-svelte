@@ -31,6 +31,28 @@ function createConvex(accessToken?: string | null) {
   return client;
 }
 
+export async function loadRuntimeProjectionFromConvex(
+  input: RuntimeGatewayInput
+): Promise<RuntimeProjectionEnvelope> {
+  const convex = createConvex(input.accessToken);
+  const envelopeApi = (
+    api as typeof api & { "envelopes/queries": typeof envelopeQueries }
+  )["envelopes/queries"];
+  const projection = await convex.query(envelopeApi.getRuntimeProjection, {
+    documentId: input.documentId as never,
+  });
+
+  if (!projection) {
+    throw new Error("Runtime projection not found");
+  }
+
+  return parseRuntimeProjectionEnvelope({
+    provider: "convex",
+    fetchedAt: Date.now(),
+    projection,
+  });
+}
+
 export async function loadRuntimeProjection(
   input: RuntimeGatewayInput
 ): Promise<RuntimeProjectionEnvelope> {
@@ -53,22 +75,36 @@ export async function loadRuntimeProjection(
     return parseRuntimeProjectionEnvelope(await response.json());
   }
 
+  return loadRuntimeProjectionFromConvex(input);
+}
+
+export async function applyRuntimeMutationToConvex(
+  input: RuntimeGatewayInput & { mutation: RuntimeMutationRequest }
+): Promise<RuntimeMutationEnvelope> {
+  const mutation = parseRuntimeMutationRequest(input.mutation);
   const convex = createConvex(input.accessToken);
-  const envelopeApi = (
-    api as typeof api & { "envelopes/queries": typeof envelopeQueries }
-  )["envelopes/queries"];
-  const projection = await convex.query(envelopeApi.getRuntimeProjection, {
-    documentId: input.documentId as never,
-  });
+  const liveContractsApi = api as typeof api & {
+    liveContracts: typeof liveContracts;
+  };
+  const result = await convex.mutation(
+    liveContractsApi.liveContracts.applyAuthorizedBlockMutation,
+    {
+      documentId: input.documentId as never,
+      ...mutation,
+    }
+  );
 
-  if (!projection) {
-    throw new Error("Runtime projection not found");
-  }
-
-  return parseRuntimeProjectionEnvelope({
+  return parseRuntimeMutationEnvelope({
     provider: "convex",
     fetchedAt: Date.now(),
-    projection,
+    result: {
+      documentId: String(result.documentId),
+      blockId: result.blockId,
+      path: result.path,
+      value: result.value,
+      eventHash: result.eventHash,
+      stateHash: result.stateHash,
+    },
   });
 }
 
@@ -100,28 +136,8 @@ export async function applyRuntimeMutation(
     return parseRuntimeMutationEnvelope(await response.json());
   }
 
-  const convex = createConvex(input.accessToken);
-  const liveContractsApi = api as typeof api & {
-    liveContracts: typeof liveContracts;
-  };
-  const result = await convex.mutation(
-    liveContractsApi.liveContracts.applyAuthorizedBlockMutation,
-    {
-      documentId: input.documentId as never,
-      ...mutation,
-    }
-  );
-
-  return parseRuntimeMutationEnvelope({
-    provider: "convex",
-    fetchedAt: Date.now(),
-    result: {
-      documentId: String(result.documentId),
-      blockId: result.blockId,
-      path: result.path,
-      value: result.value,
-      eventHash: result.eventHash,
-      stateHash: result.stateHash,
-    },
+  return applyRuntimeMutationToConvex({
+    ...input,
+    mutation,
   });
 }
