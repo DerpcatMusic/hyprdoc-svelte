@@ -72,7 +72,6 @@
   const recipients = $derived(dashboard?.signerAssignments ?? []);
   const auditLogs = $derived(dashboard?.recentAuditLogs ?? []);
   const liveStatus = $derived(dashboard?.liveContractStatus ?? null);
-  const liveEvents = $derived(dashboard?.recentLiveEvents ?? []);
   const versions = $derived(dashboard?.versions ?? []);
   const blockLineage = $derived(dashboard?.blockLineageSummary ?? null);
   const orphanSignatures = $derived(dashboard?.orphanSignatures ?? []);
@@ -440,8 +439,18 @@
   });
 
   const livePulse = $derived(
-    liveStatus?.latestEventAt
-      ? renderNow - liveStatus.latestEventAt < 1000 * 60 * 10
+    (
+      runtimeProjection?.liveEvents[runtimeProjection.liveEvents.length - 1]
+        ?.createdAt ?? liveStatus?.latestEventAt
+    )
+      ? renderNow -
+          (
+            runtimeProjection?.liveEvents[runtimeProjection.liveEvents.length - 1]
+              ?.createdAt ??
+            liveStatus?.latestEventAt ??
+            0
+          ) <
+          1000 * 60 * 10
       : false
   );
   const sealVerificationTone = $derived.by(() => {
@@ -518,6 +527,40 @@
     }
 
     return runtimeProjectionError ? "Unavailable" : "Pending";
+  });
+  const runtimeRecentLiveEvents = $derived.by(() =>
+    [...(runtimeProjection?.liveEvents ?? [])]
+      .sort((left, right) => right.createdAt - left.createdAt)
+      .slice(0, 8)
+  );
+  const runtimeRecentLineageEvents = $derived.by(() =>
+    [...(runtimeProjection?.lineageEvents ?? [])]
+      .sort((left, right) => right.createdAt - left.createdAt)
+      .slice(0, 8)
+  );
+  const runtimeLiveSummary = $derived.by(() => {
+    if (!runtimeProjection) {
+      return null;
+    }
+
+    const latestEventAt = runtimeRecentLiveEvents[0]?.createdAt ?? null;
+    const hasEvents = runtimeProjection.liveEvents.length > 0;
+
+    return {
+      status:
+        runtimeVerification.status === "invalid"
+          ? "degraded"
+          : hasEvents
+            ? "active"
+            : "sealed",
+      stateHash:
+        runtimeProjection.integrity.currentStateHash ??
+        runtimeProjection.integrity.baseSealHash,
+      latestEventAt,
+      isSealAnchorCurrent: runtimeProjection.integrity.isSealAnchorCurrent,
+      totalLiveEventCount: runtimeProjection.integrity.totalLiveEventCount,
+      totalLineageEventCount: runtimeProjection.integrity.totalLineageEventCount,
+    };
   });
   const runtimeResolvedBlockById = $derived.by(
     () =>
@@ -1721,7 +1764,7 @@
                 </Tabs.Content>
 
                 <Tabs.Content value="live" class="mt-4">
-                  {#if !liveStatus}
+                  {#if !runtimeProjection && !liveStatus}
                     <div
                       class="rounded-2xl border border-dashed border-border/70 bg-muted/30 px-4 py-5 text-sm text-muted-foreground"
                     >
@@ -1738,30 +1781,36 @@
                       >
                         <div class="mb-3 flex items-center justify-between">
                           <div class="font-medium capitalize">
-                            {liveStatus.status}
+                            {runtimeLiveSummary?.status ?? liveStatus?.status}
                             state
                           </div>
                           <span
                             class="font-mono text-[11px] text-muted-foreground"
                           >
-                            {shortHash(liveStatus.stateHash)}
+                            {shortHash(
+                              runtimeLiveSummary?.stateHash ?? liveStatus?.stateHash
+                            )}
                           </span>
                         </div>
                         <div class="space-y-2 text-sm">
                           <div class="flex items-center justify-between gap-3">
                             <span class="text-muted-foreground"
-                              >Requirements</span
+                              >Live events</span
                             >
                             <span class="font-medium">
-                              {liveStatus.metRequirementCount}/{liveStatus.requirementCount}
+                              {runtimeLiveSummary?.totalLiveEventCount ??
+                                liveStatus?.totalEventCount ??
+                                0}
                             </span>
                           </div>
                           <div class="flex items-center justify-between gap-3">
                             <span class="text-muted-foreground"
-                              >Queued actions</span
+                              >Lineage events</span
                             >
                             <span class="font-medium"
-                              >{liveStatus.pendingActionCount}</span
+                              >{runtimeLiveSummary?.totalLineageEventCount ??
+                                blockLineage?.totalEvents ??
+                                0}</span
                             >
                           </div>
                           <div class="flex items-center justify-between gap-3">
@@ -1771,17 +1820,25 @@
                             <span
                               class={cn(
                                 "font-medium",
-                                liveStatus.isSealAnchorCurrent ? "text-status-success" : "text-status-warning"
+                                (
+                                  runtimeLiveSummary?.isSealAnchorCurrent ??
+                                  liveStatus?.isSealAnchorCurrent
+                                )
+                                  ? "text-status-success"
+                                  : "text-status-warning"
                               )}
                             >
-                              {liveStatus.isSealAnchorCurrent ? "Current" : "Mismatch"}
+                              {(runtimeLiveSummary?.isSealAnchorCurrent ??
+                                liveStatus?.isSealAnchorCurrent)
+                                ? "Current"
+                                : "Mismatch"}
                             </span>
                           </div>
                         </div>
                       </div>
 
                       <div class="space-y-3">
-                        {#each liveEvents as event (`${event.id}`)}
+                        {#each runtimeRecentLiveEvents as event (`${event.id}`)}
                           <div
                             class="rounded-2xl border border-border/60 bg-background/70 p-3"
                           >
@@ -1805,6 +1862,14 @@
                             </div>
                           </div>
                         {/each}
+
+                        {#if runtimeRecentLiveEvents.length === 0}
+                          <div
+                            class="rounded-2xl border border-dashed border-border/70 bg-muted/30 px-4 py-5 text-sm text-muted-foreground"
+                          >
+                            No governed runtime events have been projected yet.
+                          </div>
+                        {/if}
                       </div>
                     </div>
                   {/if}
@@ -1871,7 +1936,9 @@
                   </div>
                 </div>
                 <span class="text-xs text-muted-foreground">
-                  {blockLineage?.totalEvents ?? 0}
+                  {runtimeProjection?.integrity.totalLineageEventCount ??
+                    blockLineage?.totalEvents ??
+                    0}
                   lineage events
                 </span>
               </div>
@@ -1917,13 +1984,13 @@
                   >
                     Block lineage
                   </div>
-                  {#if !blockLineage || blockLineage.recentEvents.length === 0}
+                  {#if runtimeRecentLineageEvents.length === 0}
                     <div class="text-sm text-muted-foreground">
                       No block lineage activity has been recorded yet.
                     </div>
                   {:else}
                     <div class="space-y-2">
-                      {#each blockLineage.recentEvents as event (`${event.id}`)}
+                      {#each runtimeRecentLineageEvents as event (`${event.id}`)}
                         <div
                           class={cn(
                             "rounded-2xl border px-3 py-2 text-sm",
