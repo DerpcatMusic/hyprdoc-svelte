@@ -505,20 +505,39 @@
 
     return runtimeProjectionError ? "Unavailable" : "Pending";
   });
+  const runtimeResolvedBlockById = $derived.by(
+    () =>
+      new Map(
+        (runtimeProjection?.resolvedBlocks ?? []).map((block) => [
+          block.blockId,
+          block,
+        ])
+      )
+  );
 
   const smartBlockRows = $derived.by(() =>
     currentSmartBlocks.map((block: CurrentSmartBlock) => {
+      const resolvedRuntimeBlock = runtimeResolvedBlockById.get(block.id) ?? null;
+      const resolvedUpdatedAt =
+        resolvedRuntimeBlock?.updatedAt ?? block.live.lastEventAt;
+      const resolvedFreshness =
+        resolvedUpdatedAt !== null && resolvedUpdatedAt !== undefined
+          ? renderNow - resolvedUpdatedAt > block.live.staleAfterMs
+            ? "stale"
+            : "fresh"
+          : block.live.freshness;
       const unseenUpdate = Boolean(
-        block.live.currentEventHash &&
-          acknowledgedBlockHeads[block.id] !== block.live.currentEventHash
+        (resolvedRuntimeBlock?.eventHash ?? block.live.currentEventHash) &&
+          acknowledgedBlockHeads[block.id] !==
+            (resolvedRuntimeBlock?.eventHash ?? block.live.currentEventHash)
       );
 
       const freshnessLabel =
-        block.live.freshness === "fresh"
+        resolvedFreshness === "fresh"
           ? unseenUpdate
             ? "Update unseen"
             : "Current"
-          : block.live.freshness === "stale"
+          : resolvedFreshness === "stale"
             ? "Viewer behind live head"
             : "No live feed";
 
@@ -537,9 +556,22 @@
           pulse: unseenUpdate || block.ui.pulse,
           staleAfterMs: block.live.staleAfterMs,
           updatedAt:
-            block.live.lastEventAt ??
+            resolvedUpdatedAt ??
             block.signing.latestSignedAt ??
             block.ui.updatedAt,
+        },
+        currentValue: resolvedRuntimeBlock?.value ?? block.currentValue,
+        valueSource: resolvedRuntimeBlock ? "runtime" : block.valueSource,
+        live: {
+          ...block.live,
+          currentEventHash:
+            resolvedRuntimeBlock?.eventHash ?? block.live.currentEventHash,
+          lastEventAt: resolvedUpdatedAt ?? null,
+          source:
+            resolvedRuntimeBlock?.source === "sealed"
+              ? block.live.source
+              : (resolvedRuntimeBlock?.source ?? block.live.source),
+          freshness: resolvedFreshness,
         },
       } satisfies SmartBlockStatusRow;
     })

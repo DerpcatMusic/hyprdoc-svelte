@@ -315,6 +315,35 @@ function summarizeCurrentBlock(input: {
   };
 }
 
+function collectRuntimeValueByBlockId(
+  currentBlocks: CanonicalSmartBlock[],
+  liveState: Doc<"liveContractStates"> | null
+) {
+  const runtimeValueByBlockId = new Map<
+    string,
+    string | number | boolean | null
+  >();
+  const liveVariables = asRecord(liveState?.variables);
+
+  for (const block of currentBlocks) {
+    const runtimeKey = `block:${block.id}:data.value`;
+    if (liveVariables && runtimeKey in liveVariables) {
+      runtimeValueByBlockId.set(
+        block.id,
+        asScalar(liveVariables[runtimeKey]) ?? null
+      );
+      continue;
+    }
+
+    const rawBlockValue = asScalar(block.data.value);
+    if (block.blockType === "live-value" && rawBlockValue !== undefined) {
+      runtimeValueByBlockId.set(block.id, rawBlockValue ?? null);
+    }
+  }
+
+  return runtimeValueByBlockId;
+}
+
 function getCurrentBlocks(document: Doc<"documents">) {
   const normalized = normalizeSmartBlockSnapshot(document.blocks);
   return normalized.length > 0
@@ -392,6 +421,10 @@ async function buildRuntimeProjection(input: {
       latestLiveEventByBlockId.set(event.matchedBlockId, event);
     }
   }
+  const runtimeValueByBlockId = collectRuntimeValueByBlockId(
+    input.currentBlocks,
+    input.liveState
+  );
 
   const lineageEvents = [...input.allLineageEvents]
     .sort((left, right) => left.createdAt - right.createdAt)
@@ -448,6 +481,44 @@ async function buildRuntimeProjection(input: {
     anchors,
     policies: input.currentBlocks.map(deriveLiveBlockPolicy),
     chainHeads,
+    resolvedBlocks: input.currentBlocks
+      .map((block) => {
+        const latestLiveEvent = latestLiveEventByBlockId.get(block.id);
+        const runtimeValue = runtimeValueByBlockId.get(block.id);
+        const policy = deriveLiveBlockPolicy(block);
+
+        if (
+          runtimeValue === undefined &&
+          policy.mode === "sealed" &&
+          block.blockType !== "live-value"
+        ) {
+          return null;
+        }
+
+        return {
+          blockId: block.id,
+          path: "data.value",
+          value: runtimeValue ?? null,
+          source: latestLiveEvent?.source ?? "sealed",
+          eventHash: latestLiveEvent?.eventHash ?? null,
+          updatedAt:
+            latestLiveEvent?.createdAt ??
+            input.liveState?.updatedAt ??
+            input.document.updatedAt,
+        };
+      })
+      .filter(
+        (
+          block
+        ): block is {
+          blockId: string;
+          path: string;
+          value: string | number | boolean | null;
+          source: "system" | "owner" | "signer" | "integration" | "sealed";
+          eventHash: string | null;
+          updatedAt: number;
+        } => block !== null
+      ),
     liveEvents,
     lineageEvents,
     integrity: {
@@ -777,10 +848,6 @@ export const getDashboard = zProtectedQuery({
     }
 
     const fieldValueByBlockId = new Map<string, string>();
-    const runtimeValueByBlockId = new Map<
-      string,
-      string | number | boolean | null
-    >();
     for (const assignment of assignments) {
       const fieldValues = asRecord(assignment.fieldValues);
       if (!fieldValues) {
@@ -793,24 +860,10 @@ export const getDashboard = zProtectedQuery({
       }
     }
 
-    const liveVariables = asRecord(liveState?.variables);
-    if (liveVariables) {
-      for (const block of currentBlocks) {
-        const runtimeKey = `block:${block.id}:data.value`;
-        if (runtimeKey in liveVariables) {
-          runtimeValueByBlockId.set(
-            block.id,
-            asScalar(liveVariables[runtimeKey]) ?? null
-          );
-          continue;
-        }
-
-        const rawBlockValue = asScalar(block.data.value);
-        if (block.blockType === "live-value" && rawBlockValue !== undefined) {
-          runtimeValueByBlockId.set(block.id, rawBlockValue ?? null);
-        }
-      }
-    }
+    const runtimeValueByBlockId = collectRuntimeValueByBlockId(
+      currentBlocks,
+      liveState
+    );
 
     const now = Date.now();
     const currentSmartBlocks = currentBlocks.map((block: CanonicalSmartBlock) =>

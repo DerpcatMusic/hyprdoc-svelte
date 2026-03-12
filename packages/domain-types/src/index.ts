@@ -127,6 +127,7 @@ export type {
   RuntimeChainHead,
   RuntimeLineageEvent,
   RuntimeLiveEvent,
+  RuntimeResolvedBlockState,
 } from "./runtime";
 
 export { deriveLiveBlockPolicy } from "./runtime-policy";

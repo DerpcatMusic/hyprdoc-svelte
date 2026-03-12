@@ -15,6 +15,7 @@ defmodule HyprdocRuntimeWeb.LiveContractsController do
         anchors: [],
         policies: [],
         chainHeads: [],
+        resolvedBlocks: [],
         liveEvents: [],
         lineageEvents: [],
         integrity: %{

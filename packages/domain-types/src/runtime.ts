@@ -88,6 +88,15 @@ export interface RuntimeLineageEvent {
   createdBy?: RuntimeActorSummary | null;
 }
 
+export interface RuntimeResolvedBlockState {
+  blockId: string;
+  path: string;
+  value: string | number | boolean | null;
+  source: LiveActorSource | "sealed";
+  eventHash?: HashHex | null;
+  updatedAt?: number | null;
+}
+
 export interface ProjectionIntegrityState {
   baseSealHash: HashHex;
   currentSealHash?: HashHex | null;
@@ -103,6 +112,7 @@ export interface LiveContractProjection {
   anchors: SealedBlockAnchor[];
   policies: LiveBlockPolicy[];
   chainHeads: RuntimeChainHead[];
+  resolvedBlocks: RuntimeResolvedBlockState[];
   liveEvents: RuntimeLiveEvent[];
   lineageEvents: RuntimeLineageEvent[];
   integrity: ProjectionIntegrityState;
@@ -274,6 +284,14 @@ const runtimeLineageEventSchema = z.object({
   createdAt: z.number(),
   createdBy: actorSummarySchema.nullish(),
 });
+const runtimeResolvedBlockStateSchema = z.object({
+  blockId: z.string(),
+  path: z.string(),
+  value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+  source: z.enum(["system", "owner", "signer", "integration", "sealed"]),
+  eventHash: hashHexSchema.nullish(),
+  updatedAt: z.number().nullish(),
+});
 const projectionIntegrityStateSchema = z.object({
   baseSealHash: hashHexSchema,
   currentSealHash: hashHexSchema.nullish(),
@@ -288,6 +306,7 @@ const liveContractProjectionSchema = z.object({
   anchors: z.array(sealedBlockAnchorSchema),
   policies: z.array(runtimePolicySchema),
   chainHeads: z.array(runtimeChainHeadSchema),
+  resolvedBlocks: z.array(runtimeResolvedBlockStateSchema),
   liveEvents: z.array(runtimeLiveEventSchema),
   lineageEvents: z.array(runtimeLineageEventSchema),
   integrity: projectionIntegrityStateSchema,
