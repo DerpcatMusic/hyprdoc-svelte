@@ -5,7 +5,10 @@
   import { api } from "@/convex/_generated/api";
   import type { Id } from "@/convex/_generated/dataModel";
   import type * as envelopeQueries from "@/convex/envelopes/queries";
-  import type {
+  import {
+    extractSmartBlocksFromContent,
+    normalizeSmartBlockSnapshot,
+    type CanonicalSmartBlock,
     LiveContractProjection,
     RuntimeProjectionEnvelope,
     ProjectionVerificationResult,
@@ -528,6 +531,22 @@
 
     return runtimeProjectionError ? "Unavailable" : "Pending";
   });
+  const canonicalEnvelopeBlocks = $derived.by(() => {
+    if (!envelope) {
+      return [] as CanonicalSmartBlock[];
+    }
+
+    const normalized = normalizeSmartBlockSnapshot(envelope.blocks ?? []);
+    return normalized.length > 0
+      ? normalized
+      : extractSmartBlocksFromContent(envelope.content);
+  });
+  const dashboardSmartBlockById = $derived.by(
+    () =>
+      new Map(
+        currentSmartBlocks.map((block: CurrentSmartBlock) => [block.id, block])
+      )
+  );
   const runtimeRecentLiveEvents = $derived.by(() =>
     [...(runtimeProjection?.liveEvents ?? [])]
       .sort((left, right) => right.createdAt - left.createdAt)
@@ -562,6 +581,32 @@
       totalLineageEventCount: runtimeProjection.integrity.totalLineageEventCount,
     };
   });
+  const runtimeLiveEventByBlockId = $derived.by(() => {
+    const eventsByBlockId = new Map<
+      string,
+      LiveContractProjection["liveEvents"][number]
+    >();
+
+    for (const event of runtimeProjection?.liveEvents ?? []) {
+      if (event.matchedBlockId) {
+        eventsByBlockId.set(event.matchedBlockId, event);
+      }
+    }
+
+    return eventsByBlockId;
+  });
+  const runtimeLineageByBlockId = $derived.by(() => {
+    const eventsByBlockId = new Map<
+      string,
+      LiveContractProjection["lineageEvents"][number]
+    >();
+
+    for (const event of runtimeProjection?.lineageEvents ?? []) {
+      eventsByBlockId.set(event.blockId, event);
+    }
+
+    return eventsByBlockId;
+  });
   const runtimeResolvedBlockById = $derived.by(
     () =>
       new Map(
@@ -573,21 +618,58 @@
   );
 
   const smartBlockRows = $derived.by(() =>
-    currentSmartBlocks.map((block: CurrentSmartBlock) => {
+    canonicalEnvelopeBlocks.map((block: CanonicalSmartBlock) => {
+      const dashboardBlock = dashboardSmartBlockById.get(block.id) ?? null;
       const resolvedRuntimeBlock = runtimeResolvedBlockById.get(block.id) ?? null;
+      const latestLiveEvent = runtimeLiveEventByBlockId.get(block.id) ?? null;
+      const latestLineageEvent = runtimeLineageByBlockId.get(block.id) ?? null;
+      const staleAfterMs = dashboardBlock?.live.staleAfterMs ?? BLOCK_STALE_AFTER_MS;
+      const currentValue =
+        resolvedRuntimeBlock?.value ??
+        dashboardBlock?.currentValue ??
+        (block.value as string | number | boolean | null | undefined) ??
+        null;
+      const valueSource =
+        resolvedRuntimeBlock?.source && resolvedRuntimeBlock.source !== "sealed"
+          ? "runtime"
+          : dashboardBlock?.valueSource ??
+            (block.blockType === "live-value" ? "runtime" : "none");
+      const liveCurrentEventHash =
+        resolvedRuntimeBlock?.eventHash ??
+        latestLiveEvent?.eventHash ??
+        dashboardBlock?.live.currentEventHash ??
+        null;
       const resolvedUpdatedAt =
-        resolvedRuntimeBlock?.updatedAt ?? block.live.lastEventAt;
+        resolvedRuntimeBlock?.updatedAt ??
+        latestLiveEvent?.createdAt ??
+        dashboardBlock?.live.lastEventAt ??
+        latestLineageEvent?.createdAt ??
+        dashboardBlock?.lineage.lastChangedAt ??
+        null;
       const resolvedFreshness =
         resolvedUpdatedAt !== null && resolvedUpdatedAt !== undefined
-          ? renderNow - resolvedUpdatedAt > block.live.staleAfterMs
+          ? renderNow - resolvedUpdatedAt > staleAfterMs
             ? "stale"
             : "fresh"
-          : block.live.freshness;
+          : (dashboardBlock?.live.freshness ?? "offline");
       const unseenUpdate = Boolean(
-        (resolvedRuntimeBlock?.eventHash ?? block.live.currentEventHash) &&
+        liveCurrentEventHash &&
           acknowledgedBlockHeads[block.id] !==
-            (resolvedRuntimeBlock?.eventHash ?? block.live.currentEventHash)
+            liveCurrentEventHash
       );
+      const signatureCount = dashboardBlock?.signing.signatureCount ?? 0;
+      const latestSignedAt = dashboardBlock?.signing.latestSignedAt ?? null;
+      const hasCurrentValue =
+        currentValue !== null &&
+        currentValue !== undefined &&
+        (typeof currentValue !== "string" || currentValue.trim().length > 0);
+      const signingSatisfied =
+        dashboardBlock?.signing.isSatisfied ??
+        (block.blockType === "signature"
+          ? signatureCount > 0
+          : block.blockType === "live-value"
+            ? hasCurrentValue
+            : !block.required);
 
       const freshnessLabel =
         resolvedFreshness === "fresh"
@@ -598,37 +680,112 @@
             ? "Viewer behind live head"
             : "No live feed";
 
-      const detailParts = [block.ui.detail, freshnessLabel].filter(
+      const detailParts = [
+        dashboardBlock?.ui.detail ?? null,
+        latestLineageEvent?.changeType
+          ? `Lineage: ${latestLineageEvent.changeType}`
+          : null,
+        latestLiveEvent?.matchedBy
+          ? `Live via ${latestLiveEvent.matchedBy}`
+          : null,
+        freshnessLabel,
+      ].filter(
         (value): value is string => Boolean(value)
       );
 
       return {
-        ...block,
+        id: block.id,
+        label: dashboardBlock?.label ?? block.label,
+        blockType: block.blockType,
+        required: block.required,
+        slotName: dashboardBlock?.slotName ?? null,
+        lineage: {
+          blockHash:
+            latestLineageEvent?.blockHash ?? dashboardBlock?.lineage.blockHash ?? null,
+          lineageHash:
+            latestLineageEvent?.lineageHash ??
+            dashboardBlock?.lineage.lineageHash ??
+            null,
+          lastChangedAt:
+            latestLineageEvent?.createdAt ??
+            dashboardBlock?.lineage.lastChangedAt ??
+            null,
+          lastChangeType:
+            latestLineageEvent?.changeType ??
+            dashboardBlock?.lineage.lastChangeType ??
+            null,
+          parentAnchorHash:
+            latestLineageEvent?.parentAnchorHash ??
+            dashboardBlock?.lineage.parentAnchorHash ??
+            null,
+        },
+        signing: {
+          isSatisfied: signingSatisfied,
+          latestSignedAt,
+          signatureCount,
+        },
+        live: {
+          matchedBy:
+            latestLiveEvent?.matchedBy ??
+            dashboardBlock?.live.matchedBy ??
+            (resolvedUpdatedAt ? "projection" : "none"),
+          lastEventAt: resolvedUpdatedAt ?? null,
+          currentEventHash: liveCurrentEventHash,
+          source:
+            resolvedRuntimeBlock?.source === "sealed"
+              ? latestLiveEvent?.source ?? dashboardBlock?.live.source ?? null
+              : resolvedRuntimeBlock?.source ??
+                latestLiveEvent?.source ??
+                dashboardBlock?.live.source ??
+                null,
+          eventType:
+            latestLiveEvent?.eventType ?? dashboardBlock?.live.eventType ?? null,
+          freshness: resolvedFreshness,
+          staleAfterMs,
+          pulse:
+            unseenUpdate ||
+            dashboardBlock?.live.pulse ||
+            Boolean(
+              resolvedUpdatedAt !== null &&
+                resolvedUpdatedAt !== undefined &&
+                renderNow - resolvedUpdatedAt <= staleAfterMs
+            ),
+        },
+        currentValue,
+        valueSource,
         freshnessLabel,
         unseenUpdate,
         ui: {
-          ...block.ui,
-          state: unseenUpdate ? "updated" : block.ui.state,
+          id: block.id,
+          label: dashboardBlock?.ui.label ?? block.label,
+          state:
+            unseenUpdate
+              ? "updated"
+              : dashboardBlock?.ui.state ??
+                (liveCurrentEventHash
+                  ? "live"
+                  : block.required && !signingSatisfied
+                    ? "queued"
+                    : "sealed"),
           detail: detailParts.join(" • "),
-          pulse: unseenUpdate || block.ui.pulse,
-          staleAfterMs: block.live.staleAfterMs,
+          blockType: block.blockType,
+          slot: dashboardBlock?.ui.slot,
+          evidence: dashboardBlock?.ui.evidence,
+          hash:
+            latestLineageEvent?.blockHash ?? dashboardBlock?.ui.hash ?? undefined,
+          pulse:
+            unseenUpdate ||
+            dashboardBlock?.ui.pulse ||
+            Boolean(
+              resolvedUpdatedAt !== null &&
+                resolvedUpdatedAt !== undefined &&
+                renderNow - resolvedUpdatedAt <= staleAfterMs
+            ),
+          staleAfterMs,
           updatedAt:
             resolvedUpdatedAt ??
-            block.signing.latestSignedAt ??
-            block.ui.updatedAt,
-        },
-        currentValue: resolvedRuntimeBlock?.value ?? block.currentValue,
-        valueSource: resolvedRuntimeBlock ? "runtime" : block.valueSource,
-        live: {
-          ...block.live,
-          currentEventHash:
-            resolvedRuntimeBlock?.eventHash ?? block.live.currentEventHash,
-          lastEventAt: resolvedUpdatedAt ?? null,
-          source:
-            resolvedRuntimeBlock?.source === "sealed"
-              ? block.live.source
-              : (resolvedRuntimeBlock?.source ?? block.live.source),
-          freshness: resolvedFreshness,
+            latestSignedAt ??
+            dashboardBlock?.ui.updatedAt,
         },
       } satisfies SmartBlockStatusRow;
     })
