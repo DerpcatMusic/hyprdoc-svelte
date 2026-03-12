@@ -6,6 +6,7 @@ defmodule HyprdocRuntime.LiveContracts.Service do
   alias HyprdocRuntime.LiveContracts.ContractValidity
   alias HyprdocRuntime.LiveContracts.MutationEvent
   alias HyprdocRuntime.LiveContracts.Payload
+  alias HyprdocRuntime.LiveContracts.ProjectionProjector
 
   def load_projection(document_id, opts \\ []) when is_binary(document_id) do
     case source(opts).fetch_projection(document_id, source_opts(opts))
@@ -34,7 +35,7 @@ defmodule HyprdocRuntime.LiveContracts.Service do
          {:ok, normalized_envelope} <- Payload.normalize_mutation_envelope(envelope) do
       normalized_envelope = Map.put(normalized_envelope, "provider", "phoenix")
       Cache.record_mutation(document_id, normalized_envelope)
-      refresh_projection_cache(document_id, opts)
+      project_cached_mutation(document_id, projection, mutation, normalized_envelope)
       {:ok, normalized_envelope}
     else
       {:invalid, reason} -> {:error, {:policy_violation, reason}}
@@ -114,11 +115,9 @@ defmodule HyprdocRuntime.LiveContracts.Service do
     end
   end
 
-  defp refresh_projection_cache(document_id, opts) do
-    case source(opts).fetch_projection(document_id, source_opts(opts))
-         |> then(&normalize_projection_response(&1)) do
-      {:ok, projection} -> Cache.put_projection(document_id, projection)
-      _ -> :ok
-    end
+  defp project_cached_mutation(document_id, projection, mutation, normalized_envelope) do
+    projection
+    |> ProjectionProjector.apply_mutation(mutation, normalized_envelope)
+    |> then(&Cache.put_projection(document_id, &1))
   end
 end
