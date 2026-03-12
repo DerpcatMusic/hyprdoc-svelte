@@ -6,6 +6,7 @@ defmodule HyprdocRuntime.Application do
     children = [
       {Phoenix.PubSub, name: HyprdocRuntime.PubSub},
       {Finch, name: HyprdocRuntime.Finch},
+      HyprdocRuntime.LiveContracts.Cache,
       HyprdocRuntimeWeb.Endpoint
     ]
 

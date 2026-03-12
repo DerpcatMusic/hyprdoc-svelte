@@ -1,14 +1,25 @@
 defmodule HyprdocRuntime.LiveContracts.Service do
   @moduledoc false
 
+  alias HyprdocRuntime.LiveContracts.Cache
   alias HyprdocRuntime.LiveContracts.ConditionEvaluator
   alias HyprdocRuntime.LiveContracts.ContractValidity
   alias HyprdocRuntime.LiveContracts.MutationEvent
   alias HyprdocRuntime.LiveContracts.Payload
 
   def load_projection(document_id, opts \\ []) when is_binary(document_id) do
-    source(opts).fetch_projection(document_id, source_opts(opts))
-    |> then(&normalize_projection_response(&1))
+    case source(opts).fetch_projection(document_id, source_opts(opts))
+         |> then(&normalize_projection_response(&1)) do
+      {:ok, projection} ->
+        Cache.put_projection(document_id, projection)
+        {:ok, projection}
+
+      {:error, _} = error ->
+        case Cache.get_projection(document_id) do
+          {:ok, projection} -> {:ok, projection}
+          {:error, :projection_cache_miss} -> error
+        end
+    end
   end
 
   def apply_mutation(document_id, params, opts \\ []) when is_binary(document_id) do
@@ -21,7 +32,10 @@ defmodule HyprdocRuntime.LiveContracts.Service do
          {:ok, envelope} <-
            source(opts).apply_mutation(document_id, encode_mutation(mutation), source_opts(opts)),
          {:ok, normalized_envelope} <- Payload.normalize_mutation_envelope(envelope) do
-      {:ok, Map.put(normalized_envelope, "provider", "phoenix")}
+      normalized_envelope = Map.put(normalized_envelope, "provider", "phoenix")
+      Cache.record_mutation(document_id, normalized_envelope)
+      refresh_projection_cache(document_id, opts)
+      {:ok, normalized_envelope}
     else
       {:invalid, reason} -> {:error, {:policy_violation, reason}}
       {:error, _} = error -> error
@@ -97,6 +111,14 @@ defmodule HyprdocRuntime.LiveContracts.Service do
       :ok
     else
       {:error, {:policy_violation, :condition_not_met}}
+    end
+  end
+
+  defp refresh_projection_cache(document_id, opts) do
+    case source(opts).fetch_projection(document_id, source_opts(opts))
+         |> then(&normalize_projection_response(&1)) do
+      {:ok, projection} -> Cache.put_projection(document_id, projection)
+      _ -> :ok
     end
   end
 end

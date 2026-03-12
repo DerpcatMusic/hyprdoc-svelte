@@ -44,6 +44,11 @@ The SvelteKit source routes live under:
 Those routes bypass the normal runtime gateway and hit Convex directly so Phoenix
 can sit in front without creating a request loop.
 
+Phoenix also keeps a local in-memory cache of fetched projection envelopes and
+forwarded mutation envelopes. That lets the runtime keep serving the last known
+projection if the transitional source blips, but it is still not a substitute
+for native persistence.
+
 ## Intended Commands
 
 ```bash
