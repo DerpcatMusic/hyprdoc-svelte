@@ -48,7 +48,7 @@ convex/_generated/
 # Package Managers
 # Bun
 bun.lockb
-bun.lock
+!bun.lock
 
 # Debug Logs
 npm-debug.log*
