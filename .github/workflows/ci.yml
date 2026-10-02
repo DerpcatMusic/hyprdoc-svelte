@@ -5,81 +5,60 @@ on:
   merge_group:
   push:
     branches: [master]
-permissions: {}
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
   quality:
     name: Quality Gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
-
-    permissions:
-      contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          bun-version: latest
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Bun download cache
-        uses: actions/cache@v4
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: '1.4.0'
+      - name: Cache dependency downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-cache-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-cache-
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-1.4.0-${{ hashFiles('bun.lock') }}
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - name: Cache Rust build inputs and output
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          path: |
-            node_modules
-            packages/*/node_modules
-          key: ${{ runner.os }}-hyprdoc-node-modules-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-hyprdoc-node-modules-
-
-      - name: Cache cargo registry and target
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-            rust/hyprproof-core/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/hyprproof-core/Cargo.lock', 'rust/hyprproof-core/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Install dependencies
+          workspaces: rust/hyprproof-core -> target
+      - name: Require the committed lockfile
+        run: test -f bun.lock
+      - name: Install locked dependencies
         run: bun install --frozen-lockfile
-
       - name: Validate
         run: bun run validate
-
       - name: Build
         run: bun run build
-
       - name: Rust proof tests
-        run: bun run proof:rust:test
+        run: cargo test --locked --manifest-path rust/hyprproof-core/Cargo.toml
 
-  # Single required check for branch rulesets and the merge queue.
   conclusion:
     if: always()
     needs: [quality]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
     permissions: {}
     steps:
-      - run: |
-          echo '${{ toJSON(needs) }}' | grep -qE '"result": "(failure|cancelled)"' && exit 1 || true
+      - name: Require successful validation
+        env:
+          RESULT: ${{ needs.quality.result }}
+        run: test "$RESULT" = success
